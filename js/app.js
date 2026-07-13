@@ -191,6 +191,28 @@ function buildExerciseBlock(exerciseId, sets, dayLabel, opts = {}) {
 
   const setsWrap = document.createElement("div");
   const inputs = [];
+
+  let referenceMax = null;
+  let referenceSensacion = null;
+  const idx100 = sets.findIndex((s) => s.pct === 100);
+  if (idx100 !== -1 && opts.lastData && opts.lastData.sets && opts.lastData.sets[idx100]) {
+    const refSet = opts.lastData.sets[idx100];
+    if (refSet.peso) { referenceMax = parseFloat(refSet.peso); referenceSensacion = refSet.sensacion; }
+  }
+  function suggestedWeight(pct) {
+    if (!referenceMax || pct == null) return null;
+    let factor = 1;
+    if (referenceSensacion === "Fácil") factor = 1.05;
+    else if (referenceSensacion === "No completé") factor = 0.95;
+    return Math.round(referenceMax * factor * (pct / 100));
+  }
+  if (referenceMax) {
+    const suggestHint = document.createElement("p");
+    suggestHint.style.cssText = "font-size:11px; color:#d9968a; margin:0 0 8px;";
+    suggestHint.textContent = `Pesos sugeridos según tu último máximo (${referenceMax}kg, te sentiste: ${referenceSensacion || "Normal"})`;
+    setsWrap.appendChild(suggestHint);
+  }
+
   sets.forEach((s, i) => {
     const row = document.createElement("div");
     row.className = "set-row" + (s.pct === 100 ? " effective" : "");
@@ -205,10 +227,12 @@ function buildExerciseBlock(exerciseId, sets, dayLabel, opts = {}) {
         hint.textContent = `Anterior: ${prev.peso || "-"}kg × ${prev.reps || "-"} reps (${prev.sensacion || "-"})`;
         setsWrap.appendChild(hint);
       }
+      const suggested = suggestedWeight(s.pct);
+      const pesoValue = suggested != null ? suggested : (prev && prev.peso ? prev.peso : "");
       const inputRow = document.createElement("div");
       inputRow.className = "set-input-row";
       inputRow.innerHTML = `
-        <input type="number" placeholder="kg" data-field="peso" value="${prev && prev.peso ? prev.peso : ""}">
+        <input type="number" placeholder="kg" data-field="peso" value="${pesoValue}">
         <input type="number" placeholder="reps" data-field="reps" value="${prev && prev.reps ? prev.reps : ""}">
         <select data-field="sensacion">
           <option${prev && prev.sensacion === "Normal" ? " selected" : ""}>Normal</option>
