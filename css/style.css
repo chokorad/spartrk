@@ -1,0 +1,95 @@
+* { box-sizing: border-box; }
+html, body {
+  margin: 0; padding: 0;
+  background: #0a0000;
+  color: #f0d9c8;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  -webkit-tap-highlight-color: transparent;
+}
+#app {
+  max-width: 480px;
+  margin: 0 auto;
+  min-height: 100vh;
+  padding: 16px;
+  padding-bottom: 90px;
+}
+.hidden { display: none !important; }
+h1, h2, h3 { margin: 0; font-weight: 500; }
+p { margin: 0; }
+button {
+  font-family: inherit; cursor: pointer; border-radius: 8px;
+}
+input, select {
+  font-family: inherit; background: #1c0808; border: 0.5px solid #3a1414;
+  border-radius: 6px; color: #f0d9c8; padding: 8px;
+}
+input:focus, select:focus { outline: 1px solid #d13030; }
+
+.topbar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+.topbar img { width: 34px; height: 34px; border-radius: 8px; }
+.topbar .title { font-size: 17px; font-weight: 500; color: #f5e6d3; }
+.topbar .subtitle { font-size: 12px; color: #8a8a8a; }
+
+.tabbar {
+  position: fixed; bottom: 0; left: 0; right: 0;
+  display: flex; justify-content: center; gap: 8px;
+  background: #0a0000; padding: 10px 16px calc(10px + env(safe-area-inset-bottom));
+  border-top: 0.5px solid #2a0f0f;
+}
+.tabbar button {
+  flex: 1; max-width: 140px; font-size: 13px; padding: 10px;
+  background: transparent; border: 0.5px solid #3a1414; color: #d9968a;
+}
+.tabbar button.active { background: #1c0808; color: #f0d9c8; border-color: #d13030; }
+
+.card {
+  background: #150606; border: 0.5px solid #2a0f0f; border-radius: 12px;
+  padding: 12px 14px; margin-bottom: 10px;
+}
+.day-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px; }
+.day-card { background: #1c0808; border: 0.5px solid #3a1414; border-radius: 10px; padding: 10px 12px; cursor: pointer; }
+.day-card.done { background: #14231c; border-color: #1d9e75; }
+.day-card .row { display: flex; justify-content: space-between; align-items: center; font-size: 11px; color: #8a8a8a; }
+.day-card .name { font-size: 14px; font-weight: 500; color: #f0d9c8; margin-top: 4px; }
+.check { color: #5dcaa5; font-size: 15px; }
+
+.emergency-card { border: 0.5px dashed #4a1414; cursor: pointer; }
+.emergency-card p { font-size: 13px; color: #f0d9c8; }
+
+.exercise-block { margin-bottom: 20px; }
+.exercise-header { font-size: 11px; color: #8a8a8a; margin-bottom: 2px; }
+.exercise-name { font-size: 16px; font-weight: 500; color: #f5e6d3; margin-bottom: 10px; }
+.exercise-images { display: flex; gap: 8px; margin-bottom: 8px; }
+.exercise-images .imgwrap { flex: 1; text-align: center; position: relative; }
+.exercise-images img { width: 100%; border-radius: 8px; display: block; background: #0a0000; }
+.exercise-images .lbl { font-size: 10px; color: #6a6a6a; margin-top: 4px; }
+.change-photo-btn {
+  position: absolute; top: 4px; right: 4px; background: rgba(10,0,0,0.75);
+  border: 0.5px solid #4a1414; color: #f0d9c8; font-size: 10px; padding: 3px 6px;
+}
+.instructions { font-size: 12px; color: #d9968a; line-height: 1.5; margin-bottom: 12px; }
+
+.set-row { font-size: 11px; color: #8a8a8a; padding: 4px 0 2px; border-bottom: 0.5px solid #2a0f0f; }
+.set-row.effective { color: #d13030; }
+.set-input-row { display: flex; gap: 6px; margin-bottom: 6px; }
+.set-input-row input { flex: 1; min-width: 0; font-size: 12px; }
+.set-input-row select { flex: 1.4; min-width: 0; font-size: 11px; }
+
+.primary-btn { width: 100%; background: #d13030; color: #fff; border: none; font-size: 14px; padding: 10px; }
+.secondary-btn { width: 100%; background: transparent; color: #f0d9c8; border: 0.5px solid #4a1414; font-size: 13px; padding: 8px; }
+.ghost-btn { background: transparent; border: 0.5px solid #3a1414; color: #d9968a; font-size: 12px; padding: 6px 10px; }
+
+.login-wrap { display: flex; flex-direction: column; gap: 10px; margin-top: 60px; align-items: center; }
+.login-wrap img { width: 72px; height: 72px; border-radius: 16px; margin-bottom: 8px; }
+.login-wrap input { width: 100%; max-width: 280px; }
+.login-wrap button { width: 100%; max-width: 280px; }
+.error-msg { color: #f09595; font-size: 12px; }
+
+.export-meta { font-size: 12px; color: #8a8a8a; margin-bottom: 16px; }
+.date-range { display: flex; gap: 6px; margin-bottom: 8px; }
+.date-range input { flex: 1; font-size: 11px; }
+.export-output {
+  width: 100%; min-height: 160px; background: #0a0000; border: 0.5px solid #2a0f0f;
+  border-radius: 8px; color: #f0d9c8; font-size: 11px; font-family: monospace;
+  padding: 10px; margin-top: 10px; white-space: pre-wrap;
+}
