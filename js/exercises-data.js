@@ -53,3 +53,6 @@ export const EMERGENCIA = {
 };
 
 export const DAILY_TASK = { id: "lateral_raise", sets: [{ label: "1 serie", reps: 15, pct: null }] };
+
+export const EQUIPO_LATERALES = ["Máquina", "Mancuernas", "Cable"];
+export const CARDIO_TIPOS = ["Elíptica", "Tabata", "Caminadora", "Aire libre"];

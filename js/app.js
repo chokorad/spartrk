@@ -3,14 +3,13 @@ import {
   signOut, GoogleAuthProvider, signInWithPopup, doc, getDoc, setDoc, updateDoc,
   collection, addDoc, query, where, orderBy, getDocs, serverTimestamp, Timestamp
 } from "./firebase-init.js";
-import { EXERCISES, DAYS, EMERGENCIA, DAILY_TASK } from "./exercises-data.js";
+import { EXERCISES, DAYS, EMERGENCIA, DAILY_TASK, EQUIPO_LATERALES, CARDIO_TIPOS } from "./exercises-data.js";
 
 const app = document.getElementById("app");
 let currentUser = null;
 let overrides = {};
 let weekProgress = {};
 let weekStartISO = "";
-let activeDay = null;
 
 function getMonday(d) {
   const date = new Date(d);
@@ -50,6 +49,23 @@ async function markComplete(dayId) {
   const ref = doc(db, "users", currentUser.uid, "weeks", weekStartISO);
   weekProgress[dayId] = true;
   await setDoc(ref, weekProgress, { merge: true });
+}
+
+async function loadLastData(exerciseIds) {
+  const map = {};
+  await Promise.all(exerciseIds.map(async (id) => {
+    const snap = await getDoc(doc(db, "users", currentUser.uid, "lastExercise", id));
+    if (snap.exists()) map[id] = snap.data();
+  }));
+  return map;
+}
+
+async function saveLastData(exercisesData) {
+  await Promise.all(exercisesData.map((ex) =>
+    setDoc(doc(db, "users", currentUser.uid, "lastExercise", ex.exerciseId), {
+      sets: ex.sets, equipo: ex.equipo || null, date: serverTimestamp()
+    })
+  ));
 }
 
 function clearApp() { app.innerHTML = ""; }
@@ -138,16 +154,10 @@ async function renderHome() {
   emCard.onclick = () => renderDay("emergencia");
   app.appendChild(emCard);
 
-  const taskCard = document.createElement("div");
-  taskCard.className = "card";
-  taskCard.innerHTML = `<p style="color:#8a8a8a; font-size:11px; margin-bottom:2px;">Tarea diaria</p><p style="font-size:12px;">${EXERCISES[DAILY_TASK.id].nombre} - 1 serie</p>`;
-  taskCard.onclick = () => renderDay("tarea");
-  app.appendChild(taskCard);
-
   app.appendChild(renderTabbar("home"));
 }
 
-function buildExerciseBlock(exerciseId, sets, dayLabel) {
+function buildExerciseBlock(exerciseId, sets, dayLabel, opts = {}) {
   const ex = EXERCISES[exerciseId];
   const block = document.createElement("div");
   block.className = "exercise-block";
@@ -188,16 +198,23 @@ function buildExerciseBlock(exerciseId, sets, dayLabel) {
     setsWrap.appendChild(row);
 
     if (!s.noInput) {
+      const prev = opts.lastData && opts.lastData.sets && opts.lastData.sets[i];
+      if (prev && (prev.peso || prev.reps)) {
+        const hint = document.createElement("p");
+        hint.style.cssText = "font-size:10px; color:#6a6a6a; margin:0 0 3px;";
+        hint.textContent = `Anterior: ${prev.peso || "-"}kg × ${prev.reps || "-"} reps (${prev.sensacion || "-"})`;
+        setsWrap.appendChild(hint);
+      }
       const inputRow = document.createElement("div");
       inputRow.className = "set-input-row";
       inputRow.innerHTML = `
-        <input type="number" placeholder="kg" data-field="peso">
-        <input type="number" placeholder="reps" data-field="reps">
+        <input type="number" placeholder="kg" data-field="peso" value="${prev && prev.peso ? prev.peso : ""}">
+        <input type="number" placeholder="reps" data-field="reps" value="${prev && prev.reps ? prev.reps : ""}">
         <select data-field="sensacion">
-          <option>Normal</option>
-          <option>Fácil</option>
-          <option>Pesado</option>
-          <option>No completé</option>
+          <option${prev && prev.sensacion === "Normal" ? " selected" : ""}>Normal</option>
+          <option${prev && prev.sensacion === "Fácil" ? " selected" : ""}>Fácil</option>
+          <option${prev && prev.sensacion === "Pesado" ? " selected" : ""}>Pesado</option>
+          <option${prev && prev.sensacion === "No completé" ? " selected" : ""}>No completé</option>
         </select>
       `;
       setsWrap.appendChild(inputRow);
@@ -207,8 +224,23 @@ function buildExerciseBlock(exerciseId, sets, dayLabel) {
     }
   });
   block.appendChild(setsWrap);
+
+  let equipoSelect = null;
+  if (opts.equipmentOptions) {
+    const eqRow = document.createElement("div");
+    eqRow.className = "set-input-row";
+    eqRow.innerHTML = `
+      <select data-field="equipo" style="flex:1;">
+        ${opts.equipmentOptions.map((o) => `<option>${o}</option>`).join("")}
+      </select>
+    `;
+    block.appendChild(eqRow);
+    equipoSelect = eqRow.querySelector('[data-field="equipo"]');
+  }
+
   block._getData = () => ({
     exerciseId, nombre: ex.nombre,
+    equipo: equipoSelect ? equipoSelect.value : undefined,
     sets: inputs.map((row, i) => row ? {
       label: sets[i].label,
       peso: row.querySelector('[data-field="peso"]').value || null,
@@ -248,19 +280,47 @@ function resizeToDataUrl(file, maxWidth) {
   });
 }
 
+let sessionStartTime = null;
+let timerInterval = null;
+
+function fmtElapsed(ms) {
+  const totalSec = Math.floor(ms / 1000);
+  const m = Math.floor(totalSec / 60).toString().padStart(2, "0");
+  const s = (totalSec % 60).toString().padStart(2, "0");
+  return `${m}:${s}`;
+}
+
 async function renderDay(dayId) {
   clearApp();
+  sessionStartTime = null;
+  if (timerInterval) clearInterval(timerInterval);
+  timerInterval = null;
+
   const top = document.createElement("div");
   top.className = "topbar";
   top.innerHTML = `<button class="ghost-btn" id="back-btn">&#8592; volver</button>`;
   app.appendChild(top);
   top.querySelector("#back-btn").onclick = renderHome;
 
+  const timerCard = document.createElement("div");
+  timerCard.className = "card";
+  timerCard.style.textAlign = "center";
+  timerCard.innerHTML = `<button class="primary-btn" id="timer-btn">Iniciar entrenamiento</button>`;
+  app.appendChild(timerCard);
+  const timerBtn = timerCard.querySelector("#timer-btn");
+  timerBtn.onclick = () => {
+    if (sessionStartTime) return;
+    sessionStartTime = Date.now();
+    timerBtn.textContent = "00:00";
+    timerBtn.style.background = "#1c0808";
+    timerBtn.style.color = "#f0d9c8";
+    timerInterval = setInterval(() => {
+      timerBtn.textContent = fmtElapsed(Date.now() - sessionStartTime);
+    }, 1000);
+  };
+
   let exList, label, isEmergency = false;
-  if (dayId === "tarea") {
-    exList = [DAILY_TASK];
-    label = "Tarea diaria";
-  } else if (dayId === "emergencia") {
+  if (dayId === "emergencia") {
     exList = EMERGENCIA.exercises;
     label = EMERGENCIA.nombre;
     isEmergency = true;
@@ -269,20 +329,27 @@ async function renderDay(dayId) {
     label = "Día " + dayId.slice(-1) + " - " + DAYS[dayId].nombre;
   }
 
-  const blocks = exList.map((e) => buildExerciseBlock(e.id, e.sets, label));
+  const allIds = exList.map((e) => e.id).concat(isEmergency ? [] : [DAILY_TASK.id]);
+  const lastDataMap = await loadLastData(allIds);
+
+  const blocks = exList.map((e) => buildExerciseBlock(e.id, e.sets, label, { lastData: lastDataMap[e.id] }));
   blocks.forEach((b) => app.appendChild(b));
+
+  if (!isEmergency) {
+    const taskBlock = buildExerciseBlock(DAILY_TASK.id, DAILY_TASK.sets, "Tarea diaria", { equipmentOptions: EQUIPO_LATERALES, lastData: lastDataMap[DAILY_TASK.id] });
+    blocks.push(taskBlock);
+    app.appendChild(taskBlock);
+  }
 
   if (!isEmergency) {
     const cardioBlock = document.createElement("div");
     cardioBlock.className = "card";
     cardioBlock.innerHTML = `
-      <p style="font-size:12px; color:#8a8a8a; margin-bottom:6px;">Cardio (elíptica, opcional)</p>
+      <p style="font-size:12px; color:#8a8a8a; margin-bottom:6px;">Cardio (opcional)</p>
       <div class="set-input-row">
         <input type="number" placeholder="minutos" id="cardio-min">
-        <select id="cardio-sens">
-          <option>Normal</option>
-          <option>Fácil</option>
-          <option>Pesado</option>
+        <select id="cardio-tipo">
+          ${CARDIO_TIPOS.map((o) => `<option>${o}</option>`).join("")}
         </select>
       </div>
     `;
@@ -294,20 +361,24 @@ async function renderDay(dayId) {
   saveBtn.textContent = "Guardar sesión";
   saveBtn.onclick = async () => {
     saveBtn.textContent = "Guardando...";
+    if (timerInterval) clearInterval(timerInterval);
+    const exercisesData = blocks.map((b) => b._getData());
     const entry = {
       date: serverTimestamp(),
       dayId,
       dayLabel: label,
-      exercises: blocks.map((b) => b._getData()),
+      exercises: exercisesData,
+      duracionMin: sessionStartTime ? Math.round((Date.now() - sessionStartTime) / 60000) : null,
       cardio: null
     };
     if (!isEmergency) {
       const min = app.querySelector("#cardio-min")?.value;
-      const sens = app.querySelector("#cardio-sens")?.value;
-      if (min) entry.cardio = { minutos: min, sensacion: sens };
+      const tipo = app.querySelector("#cardio-tipo")?.value;
+      if (min) entry.cardio = { minutos: min, tipo };
     }
     await addDoc(collection(db, "users", currentUser.uid, "logs"), entry);
-    if (dayId !== "tarea" && dayId !== "emergencia") await markComplete(dayId);
+    await saveLastData(exercisesData);
+    if (dayId !== "emergencia") await markComplete(dayId);
     if (dayId === "emergencia") await markComplete("emergencia_" + isoDate(new Date()));
     renderHome();
   };
@@ -395,9 +466,10 @@ function formatExport(logs) {
   let out = "";
   logs.forEach((log) => {
     const d = log.date && log.date.toDate ? log.date.toDate() : new Date();
-    out += `=== ${d.toLocaleDateString("es-MX")} - ${log.dayLabel} ===\n`;
+    out += `=== ${d.toLocaleDateString("es-MX")} - ${log.dayLabel}${log.duracionMin ? " (" + log.duracionMin + " min)" : ""} ===\n`;
     log.exercises.forEach((ex) => {
       out += `${ex.nombre}\n`;
+      if (ex.equipo) out += `  (equipo: ${ex.equipo})\n`;
       ex.sets.forEach((s) => {
         if (s.peso || s.reps) {
           out += `  ${s.label}: ${s.peso || "-"}kg x ${s.reps || "-"} reps (${s.sensacion || "-"})\n`;
@@ -406,7 +478,7 @@ function formatExport(logs) {
         }
       });
     });
-    if (log.cardio) out += `Cardio: ${log.cardio.minutos} min (${log.cardio.sensacion})\n`;
+    if (log.cardio) out += `Cardio: ${log.cardio.minutos} min - ${log.cardio.tipo}\n`;
     out += "\n";
   });
   return out;
