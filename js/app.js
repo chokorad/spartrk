@@ -6,6 +6,8 @@ import {
 import { EXERCISES, DAYS, EMERGENCIA, DAILY_TASK, EQUIPO_LATERALES, CARDIO_TIPOS } from "./exercises-data.js";
 
 const app = document.getElementById("app");
+const UNIT_OPTIONS = ["kg", "lb", "Barras"];
+const SENS_OPTIONS = ["Normal", "Fácil", "Pesado", "No completé"];
 let currentUser = null;
 let overrides = {};
 let weekProgress = {};
@@ -19,12 +21,8 @@ function getMonday(d) {
   monday.setHours(0, 0, 0, 0);
   return monday;
 }
-function isoDate(d) {
-  return d.toISOString().slice(0, 10);
-}
-function fmtDate(d) {
-  return d.toLocaleDateString("es-MX", { day: "numeric", month: "short" });
-}
+function isoDate(d) { return d.toISOString().slice(0, 10); }
+function fmtDate(d) { return d.toLocaleDateString("es-MX", { day: "numeric", month: "short" }); }
 function imgSrc(exerciseId, which) {
   const ov = overrides[exerciseId];
   if (ov && ov[which]) return ov[which];
@@ -63,7 +61,7 @@ async function loadLastData(exerciseIds) {
 async function saveLastData(exercisesData) {
   await Promise.all(exercisesData.map((ex) =>
     setDoc(doc(db, "users", currentUser.uid, "lastExercise", ex.exerciseId), {
-      sets: ex.sets, equipo: ex.equipo || null, date: serverTimestamp()
+      sets: ex.sets, equipo: ex.equipo || null, unidad: ex.unidad || null, date: serverTimestamp()
     })
   ));
 }
@@ -159,25 +157,40 @@ async function renderHome() {
 
 function buildExerciseBlock(exerciseId, sets, dayLabel, opts = {}) {
   const ex = EXERCISES[exerciseId];
+  const lastData = opts.lastData;
+  const draft = opts.draft;
+  const onChange = opts.onChange || (() => {});
+
   const block = document.createElement("div");
   block.className = "exercise-block";
   block.innerHTML = `
     <div class="exercise-header">${dayLabel}</div>
     <div class="exercise-name">${ex.nombre}</div>
-    <div class="exercise-images">
-      <div class="imgwrap">
-        <img src="${imgSrc(exerciseId, "imgStart")}" data-which="imgStart">
-        <button class="change-photo-btn" data-which="imgStart">cambiar</button>
-        <p class="lbl">Inicio</p>
+    <button class="toggle-btn" type="button">Ver cómo se hace &#9662;</button>
+    <div class="toggle-content" style="display:none;">
+      <div class="exercise-images">
+        <div class="imgwrap">
+          <img src="${imgSrc(exerciseId, "imgStart")}" data-which="imgStart">
+          <button class="change-photo-btn" data-which="imgStart">cambiar</button>
+          <p class="lbl">Inicio</p>
+        </div>
+        <div class="imgwrap">
+          <img src="${imgSrc(exerciseId, "imgEnd")}" data-which="imgEnd">
+          <button class="change-photo-btn" data-which="imgEnd">cambiar</button>
+          <p class="lbl">Fin</p>
+        </div>
       </div>
-      <div class="imgwrap">
-        <img src="${imgSrc(exerciseId, "imgEnd")}" data-which="imgEnd">
-        <button class="change-photo-btn" data-which="imgEnd">cambiar</button>
-        <p class="lbl">Fin</p>
-      </div>
+      <p class="instructions">${ex.instrucciones}</p>
     </div>
-    <p class="instructions">${ex.instrucciones}</p>
   `;
+
+  const toggleBtn = block.querySelector(".toggle-btn");
+  const toggleContent = block.querySelector(".toggle-content");
+  toggleBtn.onclick = () => {
+    const open = toggleContent.style.display !== "none";
+    toggleContent.style.display = open ? "none" : "block";
+    toggleBtn.innerHTML = open ? "Ver cómo se hace &#9662;" : "Ocultar &#9652;";
+  };
 
   block.querySelectorAll(".change-photo-btn").forEach((btn) => {
     btn.onclick = () => {
@@ -189,29 +202,48 @@ function buildExerciseBlock(exerciseId, sets, dayLabel, opts = {}) {
     };
   });
 
-  const setsWrap = document.createElement("div");
-  const inputs = [];
+  const initialUnit = (draft && draft.unidad) || (lastData && lastData.unidad) || "kg";
+  const unitRow = document.createElement("div");
+  unitRow.style.cssText = "margin: 10px 0 8px;";
+  unitRow.innerHTML = `
+    <select data-field="unidad" style="font-size:11px; padding:5px 8px;">
+      ${UNIT_OPTIONS.map((u) => `<option${u === initialUnit ? " selected" : ""}>${u}</option>`).join("")}
+    </select>
+  `;
+  block.appendChild(unitRow);
+  const unitSelect = unitRow.querySelector('[data-field="unidad"]');
 
-  let referenceMax = null;
-  let referenceSensacion = null;
   const idx100 = sets.findIndex((s) => s.pct === 100);
-  if (idx100 !== -1 && opts.lastData && opts.lastData.sets && opts.lastData.sets[idx100]) {
-    const refSet = opts.lastData.sets[idx100];
-    if (refSet.peso) { referenceMax = parseFloat(refSet.peso); referenceSensacion = refSet.sensacion; }
-  }
-  function suggestedWeight(pct) {
-    if (!referenceMax || pct == null) return null;
+  let currentMax = null;
+  if (idx100 !== -1 && lastData && lastData.sets && lastData.sets[idx100] && lastData.sets[idx100].peso) {
+    const refSet = lastData.sets[idx100];
+    const base = parseFloat(refSet.peso);
+    const allSlow = parseInt(refSet.repsNormales || 0) === 0 && parseInt(refSet.repsLentas || 0) > 0;
     let factor = 1;
-    if (referenceSensacion === "Fácil") factor = 1.05;
-    else if (referenceSensacion === "No completé") factor = 0.95;
-    return Math.round(referenceMax * factor * (pct / 100));
+    if (refSet.sensacion === "Fácil" || allSlow) factor = 1.05;
+    else if (refSet.sensacion === "No completé") factor = 0.95;
+    currentMax = Math.floor(base * factor);
   }
-  if (referenceMax) {
-    const suggestHint = document.createElement("p");
-    suggestHint.style.cssText = "font-size:11px; color:#d9968a; margin:0 0 8px;";
-    suggestHint.textContent = `Pesos sugeridos según tu último máximo (${referenceMax}kg, te sentiste: ${referenceSensacion || "Normal"})`;
-    setsWrap.appendChild(suggestHint);
+
+  const suggestHint = document.createElement("p");
+  suggestHint.className = "suggest-hint";
+  block.appendChild(suggestHint);
+  function updateHint() {
+    if (currentMax != null) {
+      suggestHint.style.display = "block";
+      suggestHint.textContent = `Pesos sugeridos según tu máximo estimado: ${currentMax} ${unitSelect.value}`;
+    } else {
+      suggestHint.style.display = "none";
+    }
   }
+  updateHint();
+  unitSelect.addEventListener("change", () => { updateHint(); onChange(); });
+
+  const setsWrap = document.createElement("div");
+  block.appendChild(setsWrap);
+
+  const inputs = [];
+  const touched = sets.map(() => false);
 
   sets.forEach((s, i) => {
     const row = document.createElement("div");
@@ -219,56 +251,96 @@ function buildExerciseBlock(exerciseId, sets, dayLabel, opts = {}) {
     row.innerHTML = `<span>${s.label}</span>`;
     setsWrap.appendChild(row);
 
-    if (!s.noInput) {
-      const prev = opts.lastData && opts.lastData.sets && opts.lastData.sets[i];
-      if (prev && (prev.peso || prev.reps)) {
-        const hint = document.createElement("p");
-        hint.style.cssText = "font-size:10px; color:#6a6a6a; margin:0 0 3px;";
-        hint.textContent = `Anterior: ${prev.peso || "-"}kg × ${prev.reps || "-"} reps (${prev.sensacion || "-"})`;
-        setsWrap.appendChild(hint);
-      }
-      const suggested = suggestedWeight(s.pct);
-      const pesoValue = suggested != null ? suggested : (prev && prev.peso ? prev.peso : "");
-      const inputRow = document.createElement("div");
-      inputRow.className = "set-input-row";
-      inputRow.innerHTML = `
-        <input type="number" placeholder="kg" data-field="peso" value="${pesoValue}">
-        <input type="number" placeholder="reps" data-field="reps" value="${prev && prev.reps ? prev.reps : ""}">
-        <select data-field="sensacion">
-          <option${prev && prev.sensacion === "Normal" ? " selected" : ""}>Normal</option>
-          <option${prev && prev.sensacion === "Fácil" ? " selected" : ""}>Fácil</option>
-          <option${prev && prev.sensacion === "Pesado" ? " selected" : ""}>Pesado</option>
-          <option${prev && prev.sensacion === "No completé" ? " selected" : ""}>No completé</option>
-        </select>
-      `;
-      setsWrap.appendChild(inputRow);
-      inputs.push(inputRow);
-    } else {
-      inputs.push(null);
+    if (s.noInput) { inputs.push(null); return; }
+
+    const prevSet = lastData && lastData.sets && lastData.sets[i];
+    const draftSet = draft && draft.sets && draft.sets[i];
+
+    if (prevSet && (prevSet.peso || prevSet.repsLentas || prevSet.repsNormales)) {
+      const totalPrev = (parseInt(prevSet.repsLentas) || 0) + (parseInt(prevSet.repsNormales) || 0);
+      const hint = document.createElement("p");
+      hint.className = "prev-hint";
+      hint.textContent = `Anterior: ${prevSet.peso || "-"} × ${totalPrev || "-"} reps (${prevSet.sensacion || "-"})`;
+      setsWrap.appendChild(hint);
     }
+
+    const suggested = (!draftSet && s.pct != null && currentMax != null) ? Math.floor(currentMax * (s.pct / 100)) : null;
+    const pesoVal = draftSet && draftSet.peso ? draftSet.peso : (suggested != null ? suggested : (prevSet && prevSet.peso ? prevSet.peso : ""));
+    const lentasVal = draftSet && draftSet.repsLentas ? draftSet.repsLentas : (prevSet && prevSet.repsLentas ? prevSet.repsLentas : "");
+    const normalesVal = draftSet && draftSet.repsNormales ? draftSet.repsNormales : (prevSet && prevSet.repsNormales ? prevSet.repsNormales : "");
+    const sensVal = (draftSet && draftSet.sensacion) || "Normal";
+    const isPrefilled = !draftSet && (suggested != null || (prevSet && prevSet.peso));
+
+    const inputRow = document.createElement("div");
+    inputRow.className = "set-input-row" + (isPrefilled ? " prefilled" : "");
+    inputRow.innerHTML = `
+      <input type="number" placeholder="peso" data-field="peso" value="${pesoVal}">
+      <input type="number" placeholder="lentas" data-field="repsLentas" value="${lentasVal}">
+      <input type="number" placeholder="normal" data-field="repsNormales" value="${normalesVal}">
+      <select data-field="sensacion">
+        ${SENS_OPTIONS.map((o) => `<option${o === sensVal ? " selected" : ""}>${o}</option>`).join("")}
+      </select>
+    `;
+    setsWrap.appendChild(inputRow);
+    inputs.push(inputRow);
+    if (draftSet) touched[i] = true;
+
+    function markTouched() {
+      if (!touched[i]) {
+        touched[i] = true;
+        inputRow.classList.remove("prefilled");
+        inputRow.classList.add("touched");
+      }
+      onChange();
+    }
+    inputRow.querySelectorAll("input,select").forEach((el) => {
+      el.addEventListener("input", markTouched);
+      el.addEventListener("change", markTouched);
+    });
+
+    const pesoInput = inputRow.querySelector('[data-field="peso"]');
+    pesoInput.addEventListener("input", () => {
+      if (s.pct == null) return;
+      const val = parseFloat(pesoInput.value);
+      if (!val) return;
+      currentMax = Math.floor(val / (s.pct / 100));
+      updateHint();
+      inputs.forEach((otherRow, j) => {
+        if (!otherRow || j === i || touched[j]) return;
+        const otherPct = sets[j].pct;
+        if (otherPct == null) return;
+        otherRow.querySelector('[data-field="peso"]').value = Math.floor(currentMax * (otherPct / 100));
+      });
+    });
+
+    if (draftSet) inputRow.classList.add("touched");
   });
-  block.appendChild(setsWrap);
 
   let equipoSelect = null;
   if (opts.equipmentOptions) {
+    const eqVal = (draft && draft.equipo) || (lastData && lastData.equipo) || opts.equipmentOptions[0];
     const eqRow = document.createElement("div");
     eqRow.className = "set-input-row";
     eqRow.innerHTML = `
       <select data-field="equipo" style="flex:1;">
-        ${opts.equipmentOptions.map((o) => `<option>${o}</option>`).join("")}
+        ${opts.equipmentOptions.map((o) => `<option${o === eqVal ? " selected" : ""}>${o}</option>`).join("")}
       </select>
     `;
     block.appendChild(eqRow);
     equipoSelect = eqRow.querySelector('[data-field="equipo"]');
+    equipoSelect.addEventListener("change", onChange);
   }
 
   block._getData = () => ({
-    exerciseId, nombre: ex.nombre,
+    exerciseId: opts.storageId || exerciseId,
+    nombre: ex.nombre + (opts.nameSuffix || ""),
     equipo: equipoSelect ? equipoSelect.value : undefined,
+    unidad: unitSelect.value,
     sets: inputs.map((row, i) => row ? {
       label: sets[i].label,
       peso: row.querySelector('[data-field="peso"]').value || null,
-      reps: row.querySelector('[data-field="reps"]').value || null,
+      repsLentas: row.querySelector('[data-field="repsLentas"]').value || null,
+      repsNormales: row.querySelector('[data-field="repsNormales"]').value || null,
       sensacion: row.querySelector('[data-field="sensacion"]').value
     } : { label: sets[i].label })
   });
@@ -320,28 +392,39 @@ async function renderDay(dayId) {
   if (timerInterval) clearInterval(timerInterval);
   timerInterval = null;
 
+  const draftKey = `spartrk_draft_${currentUser.uid}_${dayId}`;
+  let draftData = null;
+  try {
+    const raw = localStorage.getItem(draftKey);
+    if (raw) draftData = JSON.parse(raw);
+  } catch (e) { draftData = null; }
+
   const top = document.createElement("div");
-  top.className = "topbar";
-  top.innerHTML = `<button class="ghost-btn" id="back-btn">&#8592; volver</button>`;
+  top.className = "topbar sticky";
+  top.innerHTML = `
+    <button class="ghost-btn" id="back-btn">&#8592; volver</button>
+    <button class="timer-btn idle" id="timer-btn">Iniciar entrenamiento</button>
+  `;
   app.appendChild(top);
   top.querySelector("#back-btn").onclick = renderHome;
-
-  const timerCard = document.createElement("div");
-  timerCard.className = "card";
-  timerCard.style.textAlign = "center";
-  timerCard.innerHTML = `<button class="primary-btn" id="timer-btn">Iniciar entrenamiento</button>`;
-  app.appendChild(timerCard);
-  const timerBtn = timerCard.querySelector("#timer-btn");
+  const timerBtn = top.querySelector("#timer-btn");
   timerBtn.onclick = () => {
     if (sessionStartTime) return;
-    sessionStartTime = Date.now();
-    timerBtn.textContent = "00:00";
-    timerBtn.style.background = "#1c0808";
-    timerBtn.style.color = "#f0d9c8";
+    sessionStartTime = draftData && draftData.startedAt ? draftData.startedAt : Date.now();
+    timerBtn.classList.remove("idle");
     timerInterval = setInterval(() => {
       timerBtn.textContent = fmtElapsed(Date.now() - sessionStartTime);
     }, 1000);
+    timerBtn.textContent = fmtElapsed(Date.now() - sessionStartTime);
   };
+  if (draftData && draftData.startedAt) timerBtn.onclick();
+
+  if (draftData) {
+    const banner = document.createElement("div");
+    banner.className = "draft-banner";
+    banner.textContent = "Se restauró tu sesión sin guardar de este día.";
+    app.appendChild(banner);
+  }
 
   let exList, label, isEmergency = false;
   if (dayId === "emergencia") {
@@ -353,14 +436,44 @@ async function renderDay(dayId) {
     label = "Día " + dayId.slice(-1) + " - " + DAYS[dayId].nombre;
   }
 
-  const allIds = exList.map((e) => e.id).concat(isEmergency ? [] : [DAILY_TASK.id]);
+  const allIds = exList.map((e) => e.id).concat(isEmergency ? [] : [DAILY_TASK.storageId]);
   const lastDataMap = await loadLastData(allIds);
 
-  const blocks = exList.map((e) => buildExerciseBlock(e.id, e.sets, label, { lastData: lastDataMap[e.id] }));
-  blocks.forEach((b) => app.appendChild(b));
+  const blocks = [];
+  function persistDraft() {
+    const data = {
+      dayId, dayLabel: label,
+      exercises: blocks.map((b) => b._getData()),
+      cardio: isEmergency ? null : {
+        minutos: app.querySelector("#cardio-min")?.value || "",
+        tipo: app.querySelector("#cardio-tipo")?.value || "",
+        ciclos: app.querySelector("#cardio-ciclos")?.value || ""
+      },
+      startedAt: sessionStartTime,
+      savedAt: Date.now()
+    };
+    try { localStorage.setItem(draftKey, JSON.stringify(data)); } catch (e) {}
+  }
+
+  function draftFor(exerciseId) {
+    return draftData && draftData.exercises ? draftData.exercises.find((x) => x.exerciseId === exerciseId) : null;
+  }
+
+  exList.forEach((e) => {
+    const b = buildExerciseBlock(e.id, e.sets, label, { lastData: lastDataMap[e.id], draft: draftFor(e.id), onChange: persistDraft });
+    blocks.push(b);
+    app.appendChild(b);
+  });
 
   if (!isEmergency) {
-    const taskBlock = buildExerciseBlock(DAILY_TASK.id, DAILY_TASK.sets, "Tarea diaria", { equipmentOptions: EQUIPO_LATERALES, lastData: lastDataMap[DAILY_TASK.id] });
+    const taskBlock = buildExerciseBlock(DAILY_TASK.id, DAILY_TASK.sets, "Tarea diaria (pompeo)", {
+      equipmentOptions: EQUIPO_LATERALES,
+      lastData: lastDataMap[DAILY_TASK.storageId],
+      draft: draftFor(DAILY_TASK.storageId),
+      onChange: persistDraft,
+      storageId: DAILY_TASK.storageId,
+      nameSuffix: " (tarea diaria)"
+    });
     blocks.push(taskBlock);
     app.appendChild(taskBlock);
   }
@@ -368,24 +481,42 @@ async function renderDay(dayId) {
   if (!isEmergency) {
     const cardioBlock = document.createElement("div");
     cardioBlock.className = "card";
+    const cd = (draftData && draftData.cardio) || {};
     cardioBlock.innerHTML = `
       <p style="font-size:12px; color:#8a8a8a; margin-bottom:6px;">Cardio (opcional)</p>
       <div class="set-input-row">
-        <input type="number" placeholder="minutos" id="cardio-min">
+        <input type="number" placeholder="minutos" id="cardio-min" value="${cd.minutos || ""}">
         <select id="cardio-tipo">
-          ${CARDIO_TIPOS.map((o) => `<option>${o}</option>`).join("")}
+          ${CARDIO_TIPOS.map((o) => `<option${o === cd.tipo ? " selected" : ""}>${o}</option>`).join("")}
         </select>
+      </div>
+      <div class="set-input-row" id="cardio-ciclos-row" style="display:${cd.tipo === "Tabata" ? "flex" : "none"};">
+        <input type="number" placeholder="número de ciclos" id="cardio-ciclos" value="${cd.ciclos || ""}">
       </div>
     `;
     app.appendChild(cardioBlock);
+    const cardioTipoSel = cardioBlock.querySelector("#cardio-tipo");
+    const ciclosRow = cardioBlock.querySelector("#cardio-ciclos-row");
+    cardioTipoSel.addEventListener("change", () => {
+      ciclosRow.style.display = cardioTipoSel.value === "Tabata" ? "flex" : "none";
+      persistDraft();
+    });
+    cardioBlock.querySelector("#cardio-min").addEventListener("input", persistDraft);
+    cardioBlock.querySelector("#cardio-ciclos").addEventListener("input", persistDraft);
   }
+
+  const saveErrorEl = document.createElement("p");
+  saveErrorEl.className = "save-error";
+  saveErrorEl.style.display = "none";
 
   const saveBtn = document.createElement("button");
   saveBtn.className = "primary-btn";
   saveBtn.textContent = "Guardar sesión";
   saveBtn.onclick = async () => {
+    saveBtn.disabled = true;
     saveBtn.textContent = "Guardando...";
-    if (timerInterval) clearInterval(timerInterval);
+    saveErrorEl.style.display = "none";
+
     const exercisesData = blocks.map((b) => b._getData());
     const entry = {
       date: serverTimestamp(),
@@ -398,15 +529,33 @@ async function renderDay(dayId) {
     if (!isEmergency) {
       const min = app.querySelector("#cardio-min")?.value;
       const tipo = app.querySelector("#cardio-tipo")?.value;
-      if (min) entry.cardio = { minutos: min, tipo };
+      const ciclos = tipo === "Tabata" ? app.querySelector("#cardio-ciclos")?.value : null;
+      if (min) entry.cardio = { minutos: min, tipo, ciclos };
     }
-    await addDoc(collection(db, "users", currentUser.uid, "logs"), entry);
-    await saveLastData(exercisesData);
-    if (dayId !== "emergencia") await markComplete(dayId);
-    if (dayId === "emergencia") await markComplete("emergencia_" + isoDate(new Date()));
-    renderHome();
+
+    const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error("timeout")), 15000));
+    try {
+      await Promise.race([
+        (async () => {
+          await addDoc(collection(db, "users", currentUser.uid, "logs"), entry);
+          await saveLastData(exercisesData);
+          if (dayId !== "emergencia") await markComplete(dayId);
+          if (dayId === "emergencia") await markComplete("emergencia_" + isoDate(new Date()));
+        })(),
+        timeoutPromise
+      ]);
+      if (timerInterval) clearInterval(timerInterval);
+      try { localStorage.removeItem(draftKey); } catch (e) {}
+      renderHome();
+    } catch (err) {
+      saveBtn.disabled = false;
+      saveBtn.textContent = "Guardar sesión";
+      saveErrorEl.textContent = "No se pudo guardar (revisa tu conexión a internet). Tus datos siguen aquí, intenta de nuevo en unos segundos.";
+      saveErrorEl.style.display = "block";
+    }
   };
   app.appendChild(saveBtn);
+  app.appendChild(saveErrorEl);
 }
 
 async function renderExport() {
@@ -492,17 +641,19 @@ function formatExport(logs) {
     const d = log.date && log.date.toDate ? log.date.toDate() : new Date();
     out += `=== ${d.toLocaleDateString("es-MX")} - ${log.dayLabel}${log.duracionMin ? " (" + log.duracionMin + " min)" : ""} ===\n`;
     log.exercises.forEach((ex) => {
-      out += `${ex.nombre}\n`;
-      if (ex.equipo) out += `  (equipo: ${ex.equipo})\n`;
+      out += `${ex.nombre}${ex.equipo ? " [" + ex.equipo + "]" : ""}${ex.unidad ? " (" + ex.unidad + ")" : ""}\n`;
       ex.sets.forEach((s) => {
-        if (s.peso || s.reps) {
-          out += `  ${s.label}: ${s.peso || "-"}kg x ${s.reps || "-"} reps (${s.sensacion || "-"})\n`;
+        const totalReps = (parseInt(s.repsLentas) || 0) + (parseInt(s.repsNormales) || 0);
+        if (s.peso || totalReps) {
+          out += `  ${s.label}: ${s.peso || "-"} x ${totalReps || "-"} reps (${s.repsLentas || 0} despacito / ${s.repsNormales || 0} normal) - ${s.sensacion || "-"}\n`;
         } else {
           out += `  ${s.label}\n`;
         }
       });
     });
-    if (log.cardio) out += `Cardio: ${log.cardio.minutos} min - ${log.cardio.tipo}\n`;
+    if (log.cardio) {
+      out += `Cardio: ${log.cardio.minutos} min - ${log.cardio.tipo}${log.cardio.ciclos ? " (" + log.cardio.ciclos + " ciclos)" : ""}\n`;
+    }
     out += "\n";
   });
   return out;
