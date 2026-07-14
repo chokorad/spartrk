@@ -3,7 +3,10 @@ import {
   signOut, GoogleAuthProvider, signInWithPopup, doc, getDoc, setDoc, updateDoc,
   collection, addDoc, query, where, orderBy, getDocs, serverTimestamp, Timestamp
 } from "./firebase-init.js";
-import { EXERCISES, DAYS, EMERGENCIA, DAILY_TASK, EQUIPO_LATERALES, CARDIO_TIPOS } from "./exercises-data.js";
+import {
+  EXERCISES, DAYS, EMERGENCIA, DAILY_TASK, EQUIPO_LATERALES, CARDIO_TIPOS,
+  estimateMinutes, DAILY_TASK_TIME_MIN, CARDIO_TIME_MIN
+} from "./exercises-data.js";
 
 const app = document.getElementById("app");
 const UNIT_OPTIONS = ["kg", "lb", "Barras"];
@@ -164,6 +167,10 @@ function buildExerciseBlock(exerciseId, sets, dayLabel, opts = {}) {
   const block = document.createElement("div");
   block.className = "exercise-block";
   block.innerHTML = `
+    <div class="collapsed-summary">
+      <span class="txt"><span class="chk">&#10003;</span>&nbsp; ${ex.nombre}${opts.nameSuffix || ""}</span>
+      <span class="reopen">reabrir</span>
+    </div>
     <div class="exercise-header">${dayLabel}</div>
     <div class="exercise-name">${ex.nombre}</div>
     <button class="toggle-btn" type="button">Ver cómo se hace &#9662;</button>
@@ -175,6 +182,9 @@ function buildExerciseBlock(exerciseId, sets, dayLabel, opts = {}) {
       <p class="instructions">${ex.instrucciones}</p>
     </div>
   `;
+
+  const collapsedSummary = block.querySelector(".collapsed-summary");
+  collapsedSummary.onclick = () => block.classList.remove("collapsed");
 
   const toggleBtn = block.querySelector(".toggle-btn");
   const toggleContent = block.querySelector(".toggle-content");
@@ -323,6 +333,37 @@ function buildExerciseBlock(exerciseId, sets, dayLabel, opts = {}) {
     equipoSelect.addEventListener("change", onChange);
   }
 
+  const listoBtn = document.createElement("button");
+  listoBtn.className = "listo-btn";
+  listoBtn.type = "button";
+  listoBtn.textContent = "Listo ✓";
+  const nudge = document.createElement("p");
+  nudge.className = "nudge";
+  nudge.textContent = "Te falta llenar alguna serie antes de marcar listo.";
+  listoBtn.onclick = () => {
+    const allFilled = inputs.every((row) => {
+      if (!row) return true;
+      const reps = (parseInt(row.querySelector('[data-field="repsLentas"]').value) || 0) +
+                   (parseInt(row.querySelector('[data-field="repsNormales"]').value) || 0);
+      return reps > 0;
+    });
+    if (!allFilled) {
+      nudge.style.display = "block";
+      setTimeout(() => { nudge.style.display = "none"; }, 2500);
+      return;
+    }
+    nudge.style.display = "none";
+    block.classList.add("collapsed", "just-collapsed");
+    setTimeout(() => block.classList.remove("just-collapsed"), 650);
+    if (!block.dataset.wasDone) {
+      block.dataset.wasDone = "1";
+      if (opts.dotEl) opts.dotEl.classList.add("done");
+      if (opts.onDone) opts.onDone();
+    }
+  };
+  block.appendChild(listoBtn);
+  block.appendChild(nudge);
+
   block._getData = () => ({
     exerciseId: opts.storageId || exerciseId,
     nombre: ex.nombre + (opts.nameSuffix || ""),
@@ -431,6 +472,12 @@ async function renderDay(dayId) {
   const allIds = exList.map((e) => e.id).concat(isEmergency ? [] : [DAILY_TASK.storageId]);
   const lastDataMap = await loadLastData(allIds);
 
+  let remainingMinutes = exList.reduce((sum, e) => sum + estimateMinutes(e.sets), 0) + (isEmergency ? 0 : DAILY_TASK_TIME_MIN);
+  const etaExEl = document.createElement("span");
+  function updateEta() {
+    etaExEl.innerHTML = `&#8776; ${Math.max(0, remainingMinutes)} min ejercicios`;
+  }
+
   const blocks = [];
   function persistDraft() {
     const data = {
@@ -451,26 +498,59 @@ async function renderDay(dayId) {
     return draftData && draftData.exercises ? draftData.exercises.find((x) => x.exerciseId === exerciseId) : null;
   }
 
+  const dotsWrap = document.createElement("div");
+  dotsWrap.className = "progress-dots";
+
   exList.forEach((e) => {
-    const b = buildExerciseBlock(e.id, e.sets, label, { lastData: lastDataMap[e.id], draft: draftFor(e.id), onChange: persistDraft });
+    const dotEl = document.createElement("div");
+    dotEl.className = "pdot";
+    dotEl.title = EXERCISES[e.id].nombre;
+    dotsWrap.appendChild(dotEl);
+
+    const minutes = estimateMinutes(e.sets);
+    const b = buildExerciseBlock(e.id, e.sets, label, {
+      lastData: lastDataMap[e.id],
+      draft: draftFor(e.id),
+      onChange: persistDraft,
+      dotEl,
+      onDone: () => { remainingMinutes -= minutes; updateEta(); persistDraft(); }
+    });
     blocks.push(b);
     app.appendChild(b);
   });
 
+  let dailyDotEl = null;
   if (!isEmergency) {
+    dailyDotEl = document.createElement("div");
+    dailyDotEl.className = "pdot-daily";
+    dailyDotEl.title = "Tarea diaria";
+    dotsWrap.appendChild(dailyDotEl);
+
     const taskBlock = buildExerciseBlock(DAILY_TASK.id, DAILY_TASK.sets, "Tarea diaria (pompeo)", {
       equipmentOptions: EQUIPO_LATERALES,
       lastData: lastDataMap[DAILY_TASK.storageId],
       draft: draftFor(DAILY_TASK.storageId),
       onChange: persistDraft,
       storageId: DAILY_TASK.storageId,
-      nameSuffix: " (tarea diaria)"
+      nameSuffix: " (tarea diaria)",
+      dotEl: dailyDotEl,
+      onDone: () => { remainingMinutes -= DAILY_TASK_TIME_MIN; updateEta(); persistDraft(); }
     });
     blocks.push(taskBlock);
     app.appendChild(taskBlock);
   }
 
+  let cardioDotEl = null;
+  const etaCardioEl = document.createElement("span");
+  etaCardioEl.className = "cardio-part";
+  etaCardioEl.textContent = `+${CARDIO_TIME_MIN} cardio`;
+
   if (!isEmergency) {
+    cardioDotEl = document.createElement("div");
+    cardioDotEl.className = "pdot-cardio";
+    cardioDotEl.title = "Cardio";
+    dotsWrap.appendChild(cardioDotEl);
+
     const cardioBlock = document.createElement("div");
     cardioBlock.className = "card";
     const cd = (draftData && draftData.cardio) || {};
@@ -485,6 +565,8 @@ async function renderDay(dayId) {
       <div class="set-input-row" id="cardio-ciclos-row" style="display:${cd.tipo === "Tabata" ? "flex" : "none"};">
         <input type="number" placeholder="número de ciclos" id="cardio-ciclos" value="${cd.ciclos || ""}">
       </div>
+      <button class="listo-btn" type="button" id="cardio-listo-btn">Listo &#10003;</button>
+      <p class="nudge" id="cardio-nudge">Captura los minutos antes de marcar listo.</p>
     `;
     app.appendChild(cardioBlock);
     const cardioTipoSel = cardioBlock.querySelector("#cardio-tipo");
@@ -495,7 +577,35 @@ async function renderDay(dayId) {
     });
     cardioBlock.querySelector("#cardio-min").addEventListener("input", persistDraft);
     cardioBlock.querySelector("#cardio-ciclos").addEventListener("input", persistDraft);
+
+    const cardioNudge = cardioBlock.querySelector("#cardio-nudge");
+    cardioBlock.querySelector("#cardio-listo-btn").onclick = () => {
+      const min = cardioBlock.querySelector("#cardio-min").value;
+      if (!min || parseInt(min) <= 0) {
+        cardioNudge.style.display = "block";
+        setTimeout(() => { cardioNudge.style.display = "none"; }, 2500);
+        return;
+      }
+      cardioNudge.style.display = "none";
+      cardioDotEl.classList.add("done");
+      etaCardioEl.style.display = "none";
+      const btn = cardioBlock.querySelector("#cardio-listo-btn");
+      btn.textContent = "Completado";
+      btn.disabled = true;
+    };
   }
+
+  updateEta();
+  const etaWrap = document.createElement("div");
+  etaWrap.className = "progress-eta";
+  etaWrap.appendChild(etaExEl);
+  if (!isEmergency) etaWrap.appendChild(etaCardioEl);
+
+  const progressFooter = document.createElement("div");
+  progressFooter.className = "progress-footer";
+  progressFooter.appendChild(dotsWrap);
+  progressFooter.appendChild(etaWrap);
+  app.appendChild(progressFooter);
 
   const saveErrorEl = document.createElement("p");
   saveErrorEl.className = "save-error";

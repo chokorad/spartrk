@@ -56,3 +56,11 @@ export const DAILY_TASK = { id: "lateral_raise", storageId: "lateral_raise_daily
 
 export const EQUIPO_LATERALES = ["Máquina", "Mancuernas", "Cable"];
 export const CARDIO_TIPOS = ["Elíptica", "Tabata", "Caminadora", "Aire libre"];
+
+export function estimateMinutes(sets) {
+  const real = sets.filter((s) => !s.noInput);
+  if (real.length === 0) return 5;
+  return Math.max(1, Math.round(real.length * 1.5));
+}
+export const DAILY_TASK_TIME_MIN = 1;
+export const CARDIO_TIME_MIN = 20;
