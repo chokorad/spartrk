@@ -23,10 +23,10 @@ function getMonday(d) {
 }
 function isoDate(d) { return d.toISOString().slice(0, 10); }
 function fmtDate(d) { return d.toLocaleDateString("es-MX", { day: "numeric", month: "short" }); }
-function imgSrc(exerciseId, which) {
+function imgSrc(exerciseId) {
   const ov = overrides[exerciseId];
-  if (ov && ov[which]) return ov[which];
-  return EXERCISES[exerciseId][which === "imgStart" ? "imgStart" : "imgEnd"];
+  if (ov && ov.img) return ov.img;
+  return EXERCISES[exerciseId].img;
 }
 
 async function loadOverrides() {
@@ -168,17 +168,9 @@ function buildExerciseBlock(exerciseId, sets, dayLabel, opts = {}) {
     <div class="exercise-name">${ex.nombre}</div>
     <button class="toggle-btn" type="button">Ver cómo se hace &#9662;</button>
     <div class="toggle-content" style="display:none;">
-      <div class="exercise-images">
-        <div class="imgwrap">
-          <img src="${imgSrc(exerciseId, "imgStart")}" data-which="imgStart">
-          <button class="change-photo-btn" data-which="imgStart">cambiar</button>
-          <p class="lbl">Inicio</p>
-        </div>
-        <div class="imgwrap">
-          <img src="${imgSrc(exerciseId, "imgEnd")}" data-which="imgEnd">
-          <button class="change-photo-btn" data-which="imgEnd">cambiar</button>
-          <p class="lbl">Fin</p>
-        </div>
+      <div class="exercise-anim">
+        <img src="${imgSrc(exerciseId)}" data-which="img">
+        <button class="change-photo-btn" data-which="img">cambiar foto</button>
       </div>
       <p class="instructions">${ex.instrucciones}</p>
     </div>
