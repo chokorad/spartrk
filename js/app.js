@@ -650,9 +650,11 @@ async function renderDay(dayId) {
       try { localStorage.removeItem(draftKey); } catch (e) {}
       renderHome();
     } catch (err) {
+      console.error("SparTrk - error al guardar sesión:", err);
       saveBtn.disabled = false;
       saveBtn.textContent = "Guardar sesión";
-      saveErrorEl.textContent = "No se pudo guardar (revisa tu conexión a internet). Tus datos siguen aquí, intenta de nuevo en unos segundos.";
+      const detail = (err && (err.code || err.message)) ? ` [${err.code || err.message}]` : "";
+      saveErrorEl.textContent = "No se pudo guardar (revisa tu conexión a internet). Tus datos siguen aquí, intenta de nuevo en unos segundos." + detail;
       saveErrorEl.style.display = "block";
     }
   };
