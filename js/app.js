@@ -367,7 +367,7 @@ function buildExerciseBlock(exerciseId, sets, dayLabel, opts = {}) {
   block._getData = () => ({
     exerciseId: opts.storageId || exerciseId,
     nombre: ex.nombre + (opts.nameSuffix || ""),
-    equipo: equipoSelect ? equipoSelect.value : undefined,
+    equipo: equipoSelect ? equipoSelect.value : null,
     unidad: unitSelect.value,
     sets: inputs.map((row, i) => row ? {
       label: sets[i].label,

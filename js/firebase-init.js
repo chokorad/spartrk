@@ -22,9 +22,12 @@ export const auth = getAuth(app);
 // Fuerza long-polling desde el inicio (sin intentar streaming primero): algunos
 // bloqueadores de anuncios / extensiones de privacidad tapan el canal "Listen" en
 // streaming por error (ERR_BLOCKED_BY_CLIENT). Con force ya ni siquiera lo intenta.
+// ignoreUndefinedProperties: red de seguridad para que un campo "undefined" nunca
+// vuelva a tumbar un guardado completo con invalid-argument.
 export const db = initializeFirestore(app, {
   experimentalForceLongPolling: true,
-  useFetchStreams: false
+  useFetchStreams: false,
+  ignoreUndefinedProperties: true
 });
 
 export {
