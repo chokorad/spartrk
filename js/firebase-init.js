@@ -19,10 +19,11 @@ const firebaseConfig = {
 
 export const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
-// Fuerza long-polling en vez del canal "Listen" en streaming: algunos bloqueadores
-// de anuncios / extensiones de privacidad tapan ese canal por error (ERR_BLOCKED_BY_CLIENT).
+// Fuerza long-polling desde el inicio (sin intentar streaming primero): algunos
+// bloqueadores de anuncios / extensiones de privacidad tapan el canal "Listen" en
+// streaming por error (ERR_BLOCKED_BY_CLIENT). Con force ya ni siquiera lo intenta.
 export const db = initializeFirestore(app, {
-  experimentalAutoDetectLongPolling: true,
+  experimentalForceLongPolling: true,
   useFetchStreams: false
 });
 
