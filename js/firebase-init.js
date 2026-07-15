@@ -4,7 +4,7 @@ import {
   createUserWithEmailAndPassword, signOut, GoogleAuthProvider, signInWithPopup
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import {
-  getFirestore, doc, getDoc, setDoc, updateDoc, collection,
+  initializeFirestore, doc, getDoc, setDoc, updateDoc, collection,
   addDoc, query, where, orderBy, getDocs, serverTimestamp, Timestamp
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
@@ -19,7 +19,12 @@ const firebaseConfig = {
 
 export const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
-export const db = getFirestore(app);
+// Fuerza long-polling en vez del canal "Listen" en streaming: algunos bloqueadores
+// de anuncios / extensiones de privacidad tapan ese canal por error (ERR_BLOCKED_BY_CLIENT).
+export const db = initializeFirestore(app, {
+  experimentalAutoDetectLongPolling: true,
+  useFetchStreams: false
+});
 
 export {
   onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword,
