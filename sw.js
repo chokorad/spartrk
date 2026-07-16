@@ -1,4 +1,4 @@
-const CACHE_NAME = 'spartrk-v10';
+const CACHE_NAME = 'spartrk-v13';
 const APP_SHELL = [
   './',
   './index.html',

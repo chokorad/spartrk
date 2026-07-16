@@ -25,7 +25,7 @@ export const EXERCISES = {
   warmup_stretch: { nombre: "Estiramiento y calentamiento", instrucciones: "5 minutos de movilidad ligera: rotaciones de hombro, cadera y tobillo, más estiramientos dinámicos antes de empezar.", img: "assets/exercises/warmup_stretch.png" }
 };
 
-const ASCENDING_SETS = [
+export const ASCENDING_SETS = [
   { reps: 15, pct: 70, label: "Serie 1 · 70% · 15 reps" },
   { reps: 12, pct: 80, label: "Serie 2 · 80% · 12 reps" },
   { reps: 10, pct: 90, label: "Serie 3 · 90% · 10 reps" },

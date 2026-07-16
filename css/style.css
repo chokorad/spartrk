@@ -36,6 +36,12 @@ input:focus, select:focus { outline: 1px solid #d13030; }
 }
 .timer-btn { background: #1c0808; border: 0.5px solid #d13030; color: #f0d9c8; font-size: 13px; padding: 8px 16px; }
 .timer-btn.idle { background: transparent; border-color: #3a1414; color: #d9968a; }
+.timer-wrap { display: flex; align-items: center; }
+.timer-running-box { display: flex; align-items: center; gap: 6px; background: #1c0808; border: 0.5px solid #d13030; border-radius: 8px; padding: 6px 6px 6px 12px; }
+.timer-running-box .clock { font-size: 13px; color: #f0d9c8; font-variant-numeric: tabular-nums; min-width: 42px; }
+.timer-running-box .clock.paused { color: #d9968a; }
+.pause-btn { background: transparent; border: 0.5px solid #4a1414; color: #d9968a; font-size: 14px; width: 26px; height: 26px; padding: 0; display: flex; align-items: center; justify-content: center; }
+.pause-btn.paused { border-color: #e0a940; color: #e0a940; }
 .draft-banner {
   background: #1c0808; border: 0.5px solid #d13030; border-radius: 8px;
   padding: 8px 10px; font-size: 11px; color: #f0d9c8; margin-bottom: 12px;
@@ -66,6 +72,52 @@ input:focus, select:focus { outline: 1px solid #d13030; }
 
 .emergency-card { border: 0.5px dashed #4a1414; cursor: pointer; }
 .emergency-card p { font-size: 13px; color: #f0d9c8; }
+
+.gear-btn { background: transparent; border: 0.5px solid #3a1414; color: #d9968a; font-size: 14px; width: 32px; height: 32px; padding: 0; }
+.extra-day-card { border: 0.5px dashed #e0a940; cursor: pointer; margin-top: 8px; }
+.extra-day-card p { font-size: 13px; color: #f5e6d3; }
+.extra-day-card .sub { font-size: 10px; color: #8a8a8a; margin-top: 2px; }
+
+.field-label { font-size: 11px; color: #8a8a8a; margin: 12px 0 6px; }
+.routine-row { display: flex; align-items: center; justify-content: space-between; background: #1c0808; border: 0.5px solid #3a1414; border-radius: 8px; padding: 10px 12px; margin-bottom: 8px; }
+.routine-row .name { font-size: 13px; color: #f0d9c8; }
+.routine-row .count { font-size: 10px; color: #8a8a8a; margin-top: 2px; }
+.routine-row .edit { font-size: 11px; color: #d9968a; background: transparent; border: 0.5px solid #3a1414; padding: 5px 10px; }
+.add-routine-btn { width: 100%; background: transparent; border: 0.5px dashed #4a1414; color: #d9968a; font-size: 12px; padding: 10px; margin-bottom: 16px; }
+
+.day-slot-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.day-slot-row .lbl { width: 56px; font-size: 12px; color: #d9968a; flex-shrink: 0; }
+.day-slot-row select { flex: 1; font-size: 12px; }
+
+.reset-link { display: block; text-align: center; font-size: 11px; color: #6a6a6a; margin-top: 14px; text-decoration: underline; cursor: pointer; }
+.delete-link { display: block; text-align: center; font-size: 11px; color: #d9968a; margin-top: 10px; text-decoration: underline; cursor: pointer; }
+
+.checklist { max-height: 320px; overflow-y: auto; margin-bottom: 14px; }
+.chk-row { display: flex; align-items: center; gap: 10px; padding: 8px 4px; border-bottom: 0.5px solid #2a0f0f; font-size: 13px; color: #f0d9c8; }
+.chk-row input { width: 16px; height: 16px; padding: 0; }
+
+.sheet-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); display: flex; align-items: flex-end; z-index: 30; max-width: 480px; margin: 0 auto; }
+.sheet { background: #150606; border-top: 0.5px solid #2a0f0f; border-radius: 16px 16px 0 0; padding: 16px; width: 100%; max-height: 70vh; overflow-y: auto; }
+.sheet h3 { font-size: 14px; color: #f5e6d3; margin-bottom: 10px; }
+.sheet .routine-pick { background: #1c0808; border: 0.5px solid #3a1414; border-radius: 8px; padding: 10px 12px; margin-bottom: 8px; cursor: pointer; }
+.sheet .routine-pick .name { font-size: 13px; color: #f0d9c8; }
+.sheet .routine-pick .count { font-size: 10px; color: #8a8a8a; }
+
+.section-title { font-size: 13px; color: #d9968a; margin: 18px 0 8px; font-weight: 500; }
+.cal-card { background: #150606; border: 0.5px solid #2a0f0f; border-radius: 12px; padding: 14px; margin-bottom: 14px; }
+.cal-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+.cal-header .month { font-size: 14px; color: #f5e6d3; font-weight: 500; }
+.cal-nav { background: transparent; border: 0.5px solid #3a1414; color: #d9968a; width: 28px; height: 28px; font-size: 14px; padding: 0; }
+.cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; text-align: center; }
+.cal-dow { font-size: 9px; color: #6a6a6a; padding: 4px 0; }
+.cal-day { position: relative; font-size: 12px; color: #d9968a; padding: 8px 0; border-radius: 6px; cursor: default; }
+.cal-day.empty { visibility: hidden; }
+.cal-day.today { border: 0.5px solid #d13030; color: #f0d9c8; }
+.cal-day .dot { position: absolute; bottom: 3px; left: 50%; transform: translateX(-50%); width: 5px; height: 5px; border-radius: 50%; background: #e0a940; }
+.cal-day:has(.dot) { cursor: pointer; }
+.cal-popup { display: none; margin-top: 10px; background: #1c0808; border: 0.5px solid #e0a940; border-radius: 8px; padding: 10px 12px; font-size: 12px; color: #f0d9c8; }
+.cal-popup.show { display: block; }
+.cal-popup .d { color: #d9968a; font-size: 11px; margin-bottom: 2px; }
 
 .exercise-block { margin-bottom: 20px; }
 .exercise-block + .exercise-block {
@@ -137,13 +189,18 @@ input:focus, select:focus { outline: 1px solid #d13030; }
 }
 .progress-dots { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
 .pdot { width: 11px; height: 11px; border-radius: 50%; background: #e0a940; transition: background 0.3s ease; }
+.pdot.current { background: #3a8fd1; box-shadow: 0 0 0 3px rgba(58,143,209,0.25); }
 .pdot.done { background: #5dcaa5; }
 .pdot-cardio { width: 11px; height: 11px; border-radius: 2px; background: #e0a940; transform: rotate(45deg); transition: background 0.3s ease; }
+.pdot-cardio.current { background: #3a8fd1; box-shadow: 0 0 0 3px rgba(58,143,209,0.25); }
 .pdot-cardio.done { background: #5dcaa5; }
 .pdot-daily { width: 0; height: 0; border-left: 6px solid transparent; border-right: 6px solid transparent; border-bottom: 10px solid #e0a940; transition: border-bottom-color 0.3s ease; }
+.pdot-daily.current { border-bottom-color: #3a8fd1; }
 .pdot-daily.done { border-bottom-color: #5dcaa5; }
 .progress-eta { font-size: 11px; color: #d9968a; white-space: nowrap; text-align: right; line-height: 1.5; }
 .progress-eta .cardio-part { display: block; color: #8a8a8a; }
+.progress-eta .min-num { color: #f5e6d3; font-weight: 600; transition: color 0.2s ease; }
+.progress-eta .min-num.flash { color: #5dcaa5; }
 
 .primary-btn { width: 100%; background: #d13030; color: #fff; border: none; font-size: 14px; padding: 10px; }
 .secondary-btn { width: 100%; background: transparent; color: #f0d9c8; border: 0.5px solid #4a1414; font-size: 13px; padding: 8px; }

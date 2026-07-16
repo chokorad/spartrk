@@ -1,11 +1,11 @@
 import {
   auth, db, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword,
-  signOut, GoogleAuthProvider, signInWithPopup, doc, getDoc, setDoc, updateDoc,
+  signOut, GoogleAuthProvider, signInWithPopup, doc, getDoc, setDoc, updateDoc, deleteDoc,
   collection, addDoc, query, where, orderBy, getDocs, serverTimestamp, Timestamp
 } from "./firebase-init.js";
 import {
   EXERCISES, DAYS, EMERGENCIA, DAILY_TASK, EQUIPO_LATERALES, CARDIO_TIPOS,
-  estimateMinutes, DAILY_TASK_TIME_MIN, CARDIO_TIME_MIN
+  estimateMinutes, DAILY_TASK_TIME_MIN, CARDIO_TIME_MIN, ASCENDING_SETS
 } from "./exercises-data.js";
 
 const app = document.getElementById("app");
@@ -15,6 +15,12 @@ let currentUser = null;
 let overrides = {};
 let weekProgress = {};
 let weekStartISO = "";
+
+// plan de días "en efecto": por defecto es Día 1-4 tal cual (DAYS), y solo cambia
+// si el usuario entra a Configurar y guarda algo. Se recalcula cada vez que se
+// entra a Home, y renderDay lo reutiliza para saber qué ejercicios tocan.
+let currentEffectivePlan = [];
+let currentRoutinesMap = {};
 
 function getMonday(d) {
   const date = new Date(d);
@@ -61,12 +67,104 @@ async function loadLastData(exerciseIds) {
   return map;
 }
 
-async function saveLastData(exercisesData) {
-  await Promise.all(exercisesData.map((ex) =>
-    setDoc(doc(db, "users", currentUser.uid, "lastExercise", ex.exerciseId), {
-      sets: ex.sets, equipo: ex.equipo || null, unidad: ex.unidad || null, date: serverTimestamp()
-    })
-  ));
+// Guarda los datos de cada ejercicio para prefill/sugerencias futuras, y además
+// va acumulando un historial corto (últimas 5 sesiones) de la duración real de
+// cada ejercicio para afinar el estimado de tiempo en sesiones futuras.
+async function saveLastData(exercisesData, durations, lastDataMap) {
+  await Promise.all(exercisesData.map(async (ex, i) => {
+    const dur = durations ? durations[i] : null;
+    const prev = (lastDataMap && lastDataMap[ex.exerciseId]) || {};
+    let history = Array.isArray(prev.duraciones) ? prev.duraciones.slice() : [];
+    if (dur) { history.push(dur); history = history.slice(-5); }
+    const avgDuracionMin = history.length ? Math.round(history.reduce((a, b) => a + b, 0) / history.length) : null;
+    await setDoc(doc(db, "users", currentUser.uid, "lastExercise", ex.exerciseId), {
+      sets: ex.sets, equipo: ex.equipo || null, unidad: ex.unidad || null, date: serverTimestamp(),
+      duraciones: history, avgDuracionMin
+    });
+  }));
+}
+
+// trae las sesiones guardadas (logs) de un mes específico, agrupadas por fecha ISO,
+// para pintar los puntitos del calendario en la pantalla principal.
+async function loadMonthSessions(year, month) {
+  const from = new Date(year, month, 1, 0, 0, 0);
+  const to = new Date(year, month + 1, 0, 23, 59, 59);
+  const q = query(
+    collection(db, "users", currentUser.uid, "logs"),
+    where("date", ">=", Timestamp.fromDate(from)),
+    where("date", "<=", Timestamp.fromDate(to)),
+    orderBy("date", "asc")
+  );
+  const snap = await getDocs(q);
+  const map = {};
+  snap.forEach((d) => {
+    const data = d.data();
+    const dt = data.date && data.date.toDate ? data.date.toDate() : null;
+    if (!dt) return;
+    const iso = isoDate(dt);
+    if (!map[iso]) map[iso] = [];
+    map[iso].push({ dayLabel: data.dayLabel, duracionMin: data.duracionMin });
+  });
+  return map;
+}
+
+// --- rutinas guardadas por el usuario (fase C) ---
+async function loadRoutines() {
+  const map = {};
+  const snap = await getDocs(collection(db, "users", currentUser.uid, "routines"));
+  snap.forEach((d) => { map[d.id] = d.data(); });
+  return map;
+}
+
+async function saveRoutine(routineId, data) {
+  const ref = routineId
+    ? doc(db, "users", currentUser.uid, "routines", routineId)
+    : doc(collection(db, "users", currentUser.uid, "routines"));
+  await setDoc(ref, data);
+  return ref.id;
+}
+
+async function deleteRoutineDoc(routineId) {
+  await deleteDoc(doc(db, "users", currentUser.uid, "routines", routineId));
+}
+
+// --- plan semanal configurable (fase C) ---
+// si no existe o enabled es false, el comportamiento es 100% el clásico Día 1-4.
+async function loadWeekPlan() {
+  const ref = doc(db, "users", currentUser.uid, "settings", "weekPlan");
+  const snap = await getDoc(ref);
+  return snap.exists() ? snap.data() : null;
+}
+
+async function saveWeekPlan(plan) {
+  await setDoc(doc(db, "users", currentUser.uid, "settings", "weekPlan"), plan);
+}
+
+async function resetWeekPlan(existingPlan) {
+  const base = existingPlan || {};
+  await setDoc(doc(db, "users", currentUser.uid, "settings", "weekPlan"), { ...base, enabled: false });
+}
+
+// resuelve el plan "en efecto" a partir del weekPlan guardado (si está activo) o
+// del clásico DAYS (si no hay configuración o está desactivada).
+function resolveEffectivePlan(weekPlan, routinesMap) {
+  if (!weekPlan || !weekPlan.enabled) {
+    return Object.values(DAYS).map((d) => ({ id: d.id, nombre: d.nombre, exercises: d.exercises }));
+  }
+  const n = weekPlan.diasPerWeek || 4;
+  const slots = [];
+  for (let i = 1; i <= n; i++) {
+    const key = "dia" + i;
+    const assign = (weekPlan.days && weekPlan.days[key]) || ("classic:" + key);
+    if (assign.indexOf("classic:") === 0) {
+      const classicKey = assign.slice(8);
+      if (DAYS[classicKey]) slots.push({ id: key, nombre: DAYS[classicKey].nombre, exercises: DAYS[classicKey].exercises });
+    } else {
+      const r = routinesMap[assign];
+      if (r) slots.push({ id: key, nombre: r.nombre, exercises: r.exerciseIds.map((eid) => ({ id: eid, sets: ASCENDING_SETS })) });
+    }
+  }
+  return slots;
 }
 
 function clearApp() { app.innerHTML = ""; }
@@ -118,6 +216,10 @@ async function renderLogin() {
 async function renderHome() {
   clearApp();
   await loadWeekProgress();
+  const [weekPlan, routinesMap] = await Promise.all([loadWeekPlan(), loadRoutines()]);
+  currentRoutinesMap = routinesMap;
+  currentEffectivePlan = resolveEffectivePlan(weekPlan, routinesMap);
+
   const monday = getMonday(new Date());
   const sunday = new Date(monday); sunday.setDate(monday.getDate() + 6);
 
@@ -131,12 +233,14 @@ async function renderHome() {
         <div class="subtitle">${fmtDate(monday)} - ${fmtDate(sunday)}</div>
       </div>
     </div>
+    <button class="gear-btn" id="gear-btn" type="button" title="Configurar rutinas">&#9881;</button>
   `;
   app.appendChild(top);
+  top.querySelector("#gear-btn").onclick = () => renderConfig();
 
   const grid = document.createElement("div");
   grid.className = "day-grid";
-  Object.values(DAYS).forEach((day) => {
+  currentEffectivePlan.forEach((day) => {
     const done = !!weekProgress[day.id];
     const card = document.createElement("div");
     card.className = "day-card" + (done ? " done" : "");
@@ -155,7 +259,337 @@ async function renderHome() {
   emCard.onclick = () => renderDay("emergencia");
   app.appendChild(emCard);
 
+  const extraCard = document.createElement("div");
+  extraCard.className = "card extra-day-card";
+  extraCard.innerHTML = `<p>+ Día extra</p><div class="sub">¿Le metes un día más? Elige una rutina guardada.</div>`;
+  extraCard.onclick = () => openExtraDaySheet(routinesMap);
+  app.appendChild(extraCard);
+
+  app.appendChild(buildCalendarSection());
+
   app.appendChild(renderTabbar("home"));
+}
+
+// hoja para elegir una rutina guardada y arrancar un "día extra" suelto, sin que
+// afecte tu plan semanal ni marque ningún Día 1-N como completado.
+function openExtraDaySheet(routinesMap) {
+  const ids = Object.keys(routinesMap);
+  const overlay = document.createElement("div");
+  overlay.className = "sheet-overlay";
+  if (ids.length === 0) {
+    overlay.innerHTML = `
+      <div class="sheet">
+        <h3>Aún no tienes rutinas guardadas</h3>
+        <p style="font-size:12px; color:#d9968a; margin-bottom:12px;">Crea una en Configurar (&#9881;) y podrás usarla aquí para un día extra.</p>
+        <button class="secondary-btn" id="closeSheet">Cerrar</button>
+      </div>`;
+  } else {
+    overlay.innerHTML = `
+      <div class="sheet">
+        <h3>Elige una rutina para hoy</h3>
+        ${ids.map((id) => `<div class="routine-pick" data-id="${id}"><div class="name">${routinesMap[id].nombre}</div><div class="count">${routinesMap[id].exerciseIds.length} ejercicios</div></div>`).join("")}
+        <button class="secondary-btn" id="closeSheet">Cancelar</button>
+      </div>`;
+  }
+  document.body.appendChild(overlay);
+  overlay.querySelector("#closeSheet").onclick = () => overlay.remove();
+  overlay.querySelectorAll(".routine-pick").forEach((el) => {
+    el.onclick = () => {
+      const id = el.dataset.id;
+      const r = routinesMap[id];
+      overlay.remove();
+      const exList = r.exerciseIds.map((eid) => ({ id: eid, sets: ASCENDING_SETS }));
+      const extraDayId = "extra_" + id + "_" + isoDate(new Date());
+      renderDay(extraDayId, { exList, label: "Día extra - " + r.nombre });
+    };
+  });
+}
+
+// calendario de la pantalla principal: complementa la grid de días (no la reemplaza).
+// muestra un puntito amarillo en los días con sesión guardada; al tocar un día
+// muestra qué rutina se hizo y cuánto duró.
+function buildCalendarSection() {
+  const wrap = document.createElement("div");
+
+  const title = document.createElement("div");
+  title.className = "section-title";
+  title.textContent = "Calendario";
+  wrap.appendChild(title);
+
+  const card = document.createElement("div");
+  card.className = "cal-card";
+  wrap.appendChild(card);
+
+  const now = new Date();
+  let viewYear = now.getFullYear();
+  let viewMonth = now.getMonth();
+  const todayISO = isoDate(now);
+  const monthNames = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
+  const dowLabels = ["D", "L", "M", "M", "J", "V", "S"];
+
+  function showPopup(iso, entries) {
+    const popup = card.querySelector("#cal-popup");
+    if (!popup) return;
+    const [y, m, d] = iso.split("-");
+    popup.innerHTML = entries.map((e) =>
+      `<div class="d">${d}/${m}/${y}</div><div>${e.dayLabel}${e.duracionMin ? " — " + e.duracionMin + " min" : ""}</div>`
+    ).join('<hr style="border-color:#2a0f0f; margin:6px 0;">');
+    popup.classList.add("show");
+  }
+
+  async function render() {
+    card.innerHTML = `
+      <div class="cal-header">
+        <button class="cal-nav" id="cal-prev" type="button">&#8249;</button>
+        <span class="month">${monthNames[viewMonth]} ${viewYear}</span>
+        <button class="cal-nav" id="cal-next" type="button">&#8250;</button>
+      </div>
+      <div class="cal-grid" id="cal-grid"></div>
+      <div class="cal-popup" id="cal-popup"></div>
+    `;
+    card.querySelector("#cal-prev").onclick = () => { viewMonth--; if (viewMonth < 0) { viewMonth = 11; viewYear--; } render(); };
+    card.querySelector("#cal-next").onclick = () => { viewMonth++; if (viewMonth > 11) { viewMonth = 0; viewYear++; } render(); };
+
+    const grid = card.querySelector("#cal-grid");
+    dowLabels.forEach((d) => {
+      const el = document.createElement("div");
+      el.className = "cal-dow";
+      el.textContent = d;
+      grid.appendChild(el);
+    });
+
+    const sessions = await loadMonthSessions(viewYear, viewMonth);
+
+    const firstDay = new Date(viewYear, viewMonth, 1).getDay();
+    const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
+    for (let i = 0; i < firstDay; i++) {
+      const e = document.createElement("div");
+      e.className = "cal-day empty";
+      grid.appendChild(e);
+    }
+    for (let d = 1; d <= daysInMonth; d++) {
+      const iso = `${viewYear}-${String(viewMonth + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+      const el = document.createElement("div");
+      el.className = "cal-day" + (iso === todayISO ? " today" : "");
+      el.textContent = d;
+      if (sessions[iso]) {
+        const dot = document.createElement("div");
+        dot.className = "dot";
+        el.appendChild(dot);
+        el.onclick = () => showPopup(iso, sessions[iso]);
+      }
+      grid.appendChild(el);
+    }
+  }
+
+  render();
+  return wrap;
+}
+
+// --- pantalla de configuración de rutinas (fase C) ---
+async function renderConfig() {
+  clearApp();
+  const [weekPlan, routinesMap] = await Promise.all([loadWeekPlan(), loadRoutines()]);
+  currentRoutinesMap = routinesMap;
+
+  const top = document.createElement("div");
+  top.className = "topbar";
+  top.innerHTML = `
+    <button class="ghost-btn" id="back-btn">&#8592; volver</button>
+    <div class="title">Configurar rutinas</div>
+    <span></span>
+  `;
+  app.appendChild(top);
+  top.querySelector("#back-btn").onclick = renderHome;
+
+  const note = document.createElement("p");
+  note.style.cssText = "font-size:11px; color:#6a6a6a; margin-bottom:14px; line-height:1.5;";
+  note.textContent = "Esto solo se activa cuando guardas un cambio aquí. Si no tocas nada, tu semana sigue siendo Día 1-4 tal cual.";
+  app.appendChild(note);
+
+  const fieldLabel1 = document.createElement("div");
+  fieldLabel1.className = "field-label";
+  fieldLabel1.textContent = "Tus rutinas guardadas";
+  app.appendChild(fieldLabel1);
+
+  const routineList = document.createElement("div");
+  app.appendChild(routineList);
+  const routineIds = Object.keys(routinesMap);
+  if (routineIds.length === 0) {
+    const empty = document.createElement("p");
+    empty.style.cssText = "font-size:11px; color:#6a6a6a; margin-bottom:10px;";
+    empty.textContent = "Aún no tienes ninguna.";
+    routineList.appendChild(empty);
+  } else {
+    routineIds.forEach((id) => {
+      const r = routinesMap[id];
+      const row = document.createElement("div");
+      row.className = "routine-row";
+      row.innerHTML = `<div><div class="name">${r.nombre}</div><div class="count">${r.exerciseIds.length} ejercicios</div></div><button class="edit" type="button">editar</button>`;
+      row.querySelector(".edit").onclick = () => renderRoutineEditor(id);
+      routineList.appendChild(row);
+    });
+  }
+
+  const addBtn = document.createElement("button");
+  addBtn.className = "add-routine-btn";
+  addBtn.type = "button";
+  addBtn.textContent = "+ Nueva rutina";
+  addBtn.onclick = () => renderRoutineEditor(null);
+  app.appendChild(addBtn);
+
+  const fieldLabel2 = document.createElement("div");
+  fieldLabel2.className = "field-label";
+  fieldLabel2.textContent = "Días de entrenamiento por semana";
+  app.appendChild(fieldLabel2);
+
+  const currentDias = (weekPlan && weekPlan.enabled && weekPlan.diasPerWeek) || 4;
+  const diasSelect = document.createElement("select");
+  diasSelect.style.cssText = "width:100%; margin-bottom:14px;";
+  [3, 4, 5, 6].forEach((n) => {
+    const opt = document.createElement("option");
+    opt.value = n; opt.textContent = n;
+    if (n === currentDias) opt.selected = true;
+    diasSelect.appendChild(opt);
+  });
+  app.appendChild(diasSelect);
+
+  const fieldLabel3 = document.createElement("div");
+  fieldLabel3.className = "field-label";
+  fieldLabel3.textContent = "Qué rutina va en cada día";
+  app.appendChild(fieldLabel3);
+
+  const slotsWrap = document.createElement("div");
+  app.appendChild(slotsWrap);
+
+  function classicOptionsHTML(selectedValue) {
+    return [1, 2, 3, 4].map((i) => {
+      const key = "dia" + i;
+      const value = "classic:" + key;
+      const label = DAYS[key] ? DAYS[key].nombre + " (clásico)" : key;
+      return `<option value="${value}"${value === selectedValue ? " selected" : ""}>${label}</option>`;
+    }).join("");
+  }
+  function routineOptionsHTML(selectedValue) {
+    return routineIds.map((id) => `<option value="${id}"${id === selectedValue ? " selected" : ""}>${routinesMap[id].nombre}</option>`).join("");
+  }
+
+  function renderSlots() {
+    const n = parseInt(diasSelect.value) || 4;
+    slotsWrap.innerHTML = "";
+    for (let i = 1; i <= n; i++) {
+      const key = "dia" + i;
+      const existing = weekPlan && weekPlan.days && weekPlan.days[key];
+      const defaultValue = existing || (DAYS[key] ? "classic:" + key : (routineIds[0] || "classic:dia1"));
+      const row = document.createElement("div");
+      row.className = "day-slot-row";
+      row.innerHTML = `<span class="lbl">Día ${i}</span><select data-slot="${key}">${classicOptionsHTML(defaultValue)}${routineOptionsHTML(defaultValue)}</select>`;
+      slotsWrap.appendChild(row);
+    }
+  }
+  renderSlots();
+  diasSelect.addEventListener("change", renderSlots);
+
+  const saveBtn = document.createElement("button");
+  saveBtn.className = "primary-btn";
+  saveBtn.style.marginTop = "10px";
+  saveBtn.type = "button";
+  saveBtn.textContent = "Guardar configuración";
+  saveBtn.onclick = async () => {
+    const n = parseInt(diasSelect.value) || 4;
+    const days = {};
+    slotsWrap.querySelectorAll("select[data-slot]").forEach((sel) => { days[sel.dataset.slot] = sel.value; });
+    saveBtn.disabled = true;
+    saveBtn.textContent = "Guardando...";
+    await saveWeekPlan({ enabled: true, diasPerWeek: n, days });
+    renderHome();
+  };
+  app.appendChild(saveBtn);
+
+  const resetLink = document.createElement("span");
+  resetLink.className = "reset-link";
+  resetLink.textContent = "Usar los días clásicos (Día 1–4 por defecto)";
+  resetLink.onclick = async () => {
+    await resetWeekPlan(weekPlan);
+    renderHome();
+  };
+  app.appendChild(resetLink);
+}
+
+// --- editor de una rutina: nombre + qué ejercicios lleva (series siempre las 4 ascendentes) ---
+function renderRoutineEditor(routineId) {
+  clearApp();
+  const existing = routineId ? currentRoutinesMap[routineId] : null;
+
+  const top = document.createElement("div");
+  top.className = "topbar";
+  top.innerHTML = `
+    <button class="ghost-btn" id="back-btn">&#8592; volver</button>
+    <div class="title">${existing ? "Editar rutina" : "Nueva rutina"}</div>
+    <span></span>
+  `;
+  app.appendChild(top);
+  top.querySelector("#back-btn").onclick = () => renderConfig();
+
+  const nameInput = document.createElement("input");
+  nameInput.type = "text";
+  nameInput.placeholder = "Nombre de la rutina";
+  nameInput.style.cssText = "width:100%; margin-bottom:14px;";
+  nameInput.value = existing ? existing.nombre : "";
+  app.appendChild(nameInput);
+
+  const label = document.createElement("div");
+  label.className = "field-label";
+  label.textContent = "Elige los ejercicios (series: siempre las 4 ascendentes de siempre)";
+  app.appendChild(label);
+
+  const checklist = document.createElement("div");
+  checklist.className = "checklist";
+  app.appendChild(checklist);
+
+  const selectedIds = new Set(existing ? existing.exerciseIds : []);
+  Object.entries(EXERCISES).forEach(([id, ex]) => {
+    if (id === "warmup_stretch") return; // solo para emergencia
+    const row = document.createElement("label");
+    row.className = "chk-row";
+    row.innerHTML = `<input type="checkbox" data-id="${id}" ${selectedIds.has(id) ? "checked" : ""}><span>${ex.nombre}</span>`;
+    checklist.appendChild(row);
+  });
+
+  const errEl = document.createElement("p");
+  errEl.className = "error-msg";
+  errEl.style.display = "none";
+  app.appendChild(errEl);
+
+  const saveBtn = document.createElement("button");
+  saveBtn.className = "primary-btn";
+  saveBtn.type = "button";
+  saveBtn.textContent = "Guardar rutina";
+  saveBtn.onclick = async () => {
+    const nombre = nameInput.value.trim();
+    const exerciseIds = [...checklist.querySelectorAll('input[type="checkbox"]:checked')].map((el) => el.dataset.id);
+    if (!nombre || exerciseIds.length === 0) {
+      errEl.textContent = "Ponle un nombre y elige al menos un ejercicio.";
+      errEl.style.display = "block";
+      return;
+    }
+    saveBtn.disabled = true;
+    saveBtn.textContent = "Guardando...";
+    await saveRoutine(routineId, { nombre, exerciseIds });
+    renderConfig();
+  };
+  app.appendChild(saveBtn);
+
+  if (existing) {
+    const deleteLink = document.createElement("span");
+    deleteLink.className = "delete-link";
+    deleteLink.textContent = "Eliminar esta rutina";
+    deleteLink.onclick = async () => {
+      await deleteRoutineDoc(routineId);
+      renderConfig();
+    };
+    app.appendChild(deleteLink);
+  }
 }
 
 function buildExerciseBlock(exerciseId, sets, dayLabel, opts = {}) {
@@ -203,6 +637,26 @@ function buildExerciseBlock(exerciseId, sets, dayLabel, opts = {}) {
       input.click();
     };
   });
+
+  // --- fase A: progreso por serie + punto "en curso" + duración real del ejercicio ---
+  const totalMinutes = opts.totalMinutesOverride != null ? opts.totalMinutesOverride : estimateMinutes(sets);
+  const realSetCount = sets.filter((s) => !s.noInput).length;
+  const perSetMin = realSetCount > 0 ? totalMinutes / realSetCount : 0;
+  const setFilled = sets.map(() => false);
+  let exerciseStartedAt = null;
+  let exerciseDurationMin = null;
+
+  function spendSet(i) {
+    if (setFilled[i]) return;
+    setFilled[i] = true;
+    if (opts.onSetProgress) opts.onSetProgress(perSetMin);
+  }
+
+  if (opts.onFocus) {
+    block.addEventListener("focusin", () => {
+      if (!block.dataset.wasDone) opts.onFocus();
+    });
+  }
 
   const initialUnit = (draft && draft.unidad) || (lastData && lastData.unidad) || "kg";
   const unitRow = document.createElement("div");
@@ -288,6 +742,7 @@ function buildExerciseBlock(exerciseId, sets, dayLabel, opts = {}) {
     if (draftSet) touched[i] = true;
 
     function markTouched() {
+      if (!exerciseStartedAt) exerciseStartedAt = Date.now();
       if (!touched[i]) {
         touched[i] = true;
         inputRow.classList.remove("prefilled");
@@ -295,10 +750,18 @@ function buildExerciseBlock(exerciseId, sets, dayLabel, opts = {}) {
       }
       onChange();
     }
+    function checkSetFilled() {
+      const reps = (parseInt(inputRow.querySelector('[data-field="repsLentas"]').value) || 0) +
+                   (parseInt(inputRow.querySelector('[data-field="repsNormales"]').value) || 0);
+      if (reps > 0) spendSet(i);
+    }
     inputRow.querySelectorAll("input,select").forEach((el) => {
       el.addEventListener("input", markTouched);
       el.addEventListener("change", markTouched);
+      el.addEventListener("input", checkSetFilled);
+      el.addEventListener("change", checkSetFilled);
     });
+    checkSetFilled(); // por si ya viene prellenado con datos de la vez anterior
 
     const pesoInput = inputRow.querySelector('[data-field="peso"]');
     pesoInput.addEventListener("input", () => {
@@ -353,12 +816,16 @@ function buildExerciseBlock(exerciseId, sets, dayLabel, opts = {}) {
       return;
     }
     nudge.style.display = "none";
+    sets.forEach((s, i) => { if (!s.noInput) spendSet(i); });
     block.classList.add("collapsed", "just-collapsed");
     setTimeout(() => block.classList.remove("just-collapsed"), 650);
     if (!block.dataset.wasDone) {
       block.dataset.wasDone = "1";
-      if (opts.dotEl) opts.dotEl.classList.add("done");
-      if (opts.onDone) opts.onDone();
+      // ejercicios sin series reales (ej. calentamiento) no pasan por spendSet arriba: se descuentan aquí de una vez.
+      if (realSetCount === 0 && opts.onSetProgress) opts.onSetProgress(totalMinutes);
+      if (exerciseStartedAt) exerciseDurationMin = Math.max(1, Math.round((Date.now() - exerciseStartedAt) / 60000));
+      if (opts.dotEl) { opts.dotEl.classList.add("done"); opts.dotEl.classList.remove("current"); }
+      if (opts.onExerciseDone) opts.onExerciseDone();
     }
   };
   block.appendChild(listoBtn);
@@ -377,6 +844,7 @@ function buildExerciseBlock(exerciseId, sets, dayLabel, opts = {}) {
       sensacion: row.querySelector('[data-field="sensacion"]').value
     } : { label: sets[i].label })
   });
+  block._getDuration = () => exerciseDurationMin;
   return block;
 }
 
@@ -409,8 +877,13 @@ function resizeToDataUrl(file, maxWidth) {
   });
 }
 
+// timer de la sesión: vive a nivel módulo porque debe sobrevivir a los re-renders
+// puntuales dentro de un mismo día, y se resetea al entrar a renderDay.
 let sessionStartTime = null;
 let timerInterval = null;
+let isPaused = false;
+let pausedAccum = 0;
+let pauseStartedAt = null;
 
 function fmtElapsed(ms) {
   const totalSec = Math.floor(ms / 1000);
@@ -419,11 +892,18 @@ function fmtElapsed(ms) {
   return `${m}:${s}`;
 }
 
-async function renderDay(dayId) {
+// dayId normal: "dia1".."diaN" (resuelto contra currentEffectivePlan) o "emergencia".
+// extraOverride (opcional): { exList, label } para un "día extra" ad-hoc con una rutina
+// guardada; en ese caso dayId es una clave única tipo "extra_<routineId>_<fecha>" que
+// no colisiona con ningún slot semanal.
+async function renderDay(dayId, extraOverride) {
   clearApp();
   sessionStartTime = null;
   if (timerInterval) clearInterval(timerInterval);
   timerInterval = null;
+  isPaused = false;
+  pausedAccum = 0;
+  pauseStartedAt = null;
 
   const draftKey = `spartrk_draft_${currentUser.uid}_${dayId}`;
   let draftData = null;
@@ -436,21 +916,66 @@ async function renderDay(dayId) {
   top.className = "topbar sticky";
   top.innerHTML = `
     <button class="ghost-btn" id="back-btn">&#8592; volver</button>
-    <button class="timer-btn idle" id="timer-btn">Iniciar entrenamiento</button>
+    <div class="timer-wrap" id="timer-wrap"></div>
   `;
   app.appendChild(top);
   top.querySelector("#back-btn").onclick = renderHome;
-  const timerBtn = top.querySelector("#timer-btn");
-  timerBtn.onclick = () => {
+  const timerWrapEl = top.querySelector("#timer-wrap");
+
+  // --- timer: doble disparo (botón manual o al tocar el primer campo) + pausa ---
+  function getElapsedMs() {
+    if (!sessionStartTime) return 0;
+    const pausedTotal = pausedAccum + (isPaused && pauseStartedAt ? Date.now() - pauseStartedAt : 0);
+    return Date.now() - sessionStartTime - pausedTotal;
+  }
+
+  function renderTimerUI() {
+    if (!sessionStartTime) {
+      timerWrapEl.innerHTML = `<button class="timer-btn idle" id="timer-btn" type="button">Iniciar entrenamiento</button>`;
+      timerWrapEl.querySelector("#timer-btn").onclick = startTimer;
+      return;
+    }
+    timerWrapEl.innerHTML = `
+      <div class="timer-running-box">
+        <span class="clock${isPaused ? " paused" : ""}" id="timer-clock">${fmtElapsed(getElapsedMs())}</span>
+        <button class="pause-btn${isPaused ? " paused" : ""}" id="pause-btn" type="button">${isPaused ? "&#9654;" : "&#10074;&#10074;"}</button>
+      </div>
+    `;
+    timerWrapEl.querySelector("#pause-btn").onclick = togglePause;
+  }
+
+  function startTimer() {
     if (sessionStartTime) return;
     sessionStartTime = draftData && draftData.startedAt ? draftData.startedAt : Date.now();
-    timerBtn.classList.remove("idle");
+    pausedAccum = (draftData && draftData.pausedAccum) || 0;
+    isPaused = false;
+    pauseStartedAt = null;
+    renderTimerUI();
     timerInterval = setInterval(() => {
-      timerBtn.textContent = fmtElapsed(Date.now() - sessionStartTime);
+      if (!isPaused) {
+        const clockEl = document.getElementById("timer-clock");
+        if (clockEl) clockEl.textContent = fmtElapsed(getElapsedMs());
+      }
     }, 1000);
-    timerBtn.textContent = fmtElapsed(Date.now() - sessionStartTime);
-  };
-  if (draftData && draftData.startedAt) timerBtn.onclick();
+    persistDraft();
+  }
+
+  function togglePause() {
+    if (!sessionStartTime) return;
+    if (isPaused) {
+      pausedAccum += Date.now() - pauseStartedAt;
+      pauseStartedAt = null;
+      isPaused = false;
+    } else {
+      isPaused = true;
+      pauseStartedAt = Date.now();
+    }
+    renderTimerUI();
+    persistDraft();
+  }
+
+  renderTimerUI();
+  if (draftData && draftData.startedAt) startTimer();
 
   if (draftData) {
     const banner = document.createElement("div");
@@ -464,18 +989,32 @@ async function renderDay(dayId) {
     exList = EMERGENCIA.exercises;
     label = EMERGENCIA.nombre;
     isEmergency = true;
+  } else if (extraOverride) {
+    exList = extraOverride.exList;
+    label = extraOverride.label;
   } else {
-    exList = DAYS[dayId].exercises;
-    label = "Día " + dayId.slice(-1) + " - " + DAYS[dayId].nombre;
+    const slot = currentEffectivePlan.find((s) => s.id === dayId);
+    exList = slot.exercises;
+    label = "Día " + dayId.slice(-1) + " - " + slot.nombre;
   }
 
   const allIds = exList.map((e) => e.id).concat(isEmergency ? [] : [DAILY_TASK.storageId]);
   const lastDataMap = await loadLastData(allIds);
 
-  let remainingMinutes = exList.reduce((sum, e) => sum + estimateMinutes(e.sets), 0) + (isEmergency ? 0 : DAILY_TASK_TIME_MIN);
+  // usa el promedio real de tus últimas sesiones para ese ejercicio si ya existe,
+  // si no, cae al estimado genérico por número de series.
+  function minutesFor(e) {
+    const personalized = lastDataMap[e.id] && lastDataMap[e.id].avgDuracionMin;
+    return personalized || estimateMinutes(e.sets);
+  }
+
+  let remainingMinutes = exList.reduce((sum, e) => sum + minutesFor(e), 0) + (isEmergency ? 0 : DAILY_TASK_TIME_MIN);
   const etaExEl = document.createElement("span");
+  etaExEl.className = "min-num";
   function updateEta() {
-    etaExEl.innerHTML = `&#8776; ${Math.max(0, remainingMinutes)} min ejercicios`;
+    etaExEl.innerHTML = `&#8776; ${Math.max(0, Math.round(remainingMinutes))} min ejercicios`;
+    etaExEl.classList.add("flash");
+    setTimeout(() => etaExEl.classList.remove("flash"), 300);
   }
 
   const blocks = [];
@@ -489,6 +1028,7 @@ async function renderDay(dayId) {
         ciclos: app.querySelector("#cardio-ciclos")?.value || ""
       },
       startedAt: sessionStartTime,
+      pausedAccum: pausedAccum,
       savedAt: Date.now()
     };
     try { localStorage.setItem(draftKey, JSON.stringify(data)); } catch (e) {}
@@ -496,6 +1036,16 @@ async function renderDay(dayId) {
 
   function draftFor(exerciseId) {
     return draftData && draftData.exercises ? draftData.exercises.find((x) => x.exerciseId === exerciseId) : null;
+  }
+
+  // --- punto "en curso" (tercer color, distinto de pendiente/completado) ---
+  let currentDotEl = null;
+  function setCurrentDot(dotEl) {
+    if (currentDotEl && currentDotEl !== dotEl) currentDotEl.classList.remove("current");
+    if (dotEl && !dotEl.classList.contains("done")) {
+      dotEl.classList.add("current");
+      currentDotEl = dotEl;
+    }
   }
 
   const dotsWrap = document.createElement("div");
@@ -507,13 +1057,15 @@ async function renderDay(dayId) {
     dotEl.title = EXERCISES[e.id].nombre;
     dotsWrap.appendChild(dotEl);
 
-    const minutes = estimateMinutes(e.sets);
     const b = buildExerciseBlock(e.id, e.sets, label, {
       lastData: lastDataMap[e.id],
       draft: draftFor(e.id),
       onChange: persistDraft,
       dotEl,
-      onDone: () => { remainingMinutes -= minutes; updateEta(); persistDraft(); }
+      totalMinutesOverride: minutesFor(e),
+      onSetProgress: (min) => { remainingMinutes -= min; updateEta(); persistDraft(); },
+      onExerciseDone: () => { persistDraft(); },
+      onFocus: () => { startTimer(); setCurrentDot(dotEl); }
     });
     blocks.push(b);
     app.appendChild(b);
@@ -534,7 +1086,10 @@ async function renderDay(dayId) {
       storageId: DAILY_TASK.storageId,
       nameSuffix: " (tarea diaria)",
       dotEl: dailyDotEl,
-      onDone: () => { remainingMinutes -= DAILY_TASK_TIME_MIN; updateEta(); persistDraft(); }
+      totalMinutesOverride: DAILY_TASK_TIME_MIN,
+      onSetProgress: (min) => { remainingMinutes -= min; updateEta(); persistDraft(); },
+      onExerciseDone: () => { persistDraft(); },
+      onFocus: () => { startTimer(); setCurrentDot(dailyDotEl); }
     });
     blocks.push(taskBlock);
     app.appendChild(taskBlock);
@@ -569,6 +1124,7 @@ async function renderDay(dayId) {
       <p class="nudge" id="cardio-nudge">Captura los minutos antes de marcar listo.</p>
     `;
     app.appendChild(cardioBlock);
+    cardioBlock.addEventListener("focusin", () => { startTimer(); setCurrentDot(cardioDotEl); });
     const cardioTipoSel = cardioBlock.querySelector("#cardio-tipo");
     const ciclosRow = cardioBlock.querySelector("#cardio-ciclos-row");
     cardioTipoSel.addEventListener("change", () => {
@@ -588,6 +1144,7 @@ async function renderDay(dayId) {
       }
       cardioNudge.style.display = "none";
       cardioDotEl.classList.add("done");
+      cardioDotEl.classList.remove("current");
       etaCardioEl.style.display = "none";
       const btn = cardioBlock.querySelector("#cardio-listo-btn");
       btn.textContent = "Completado";
@@ -620,12 +1177,13 @@ async function renderDay(dayId) {
     saveErrorEl.style.display = "none";
 
     const exercisesData = blocks.map((b) => b._getData());
+    const durations = blocks.map((b) => (b._getDuration ? b._getDuration() : null));
     const entry = {
       date: serverTimestamp(),
       dayId,
       dayLabel: label,
       exercises: exercisesData,
-      duracionMin: sessionStartTime ? Math.round((Date.now() - sessionStartTime) / 60000) : null,
+      duracionMin: sessionStartTime ? Math.round(getElapsedMs() / 60000) : null,
       cardio: null
     };
     if (!isEmergency) {
@@ -640,7 +1198,7 @@ async function renderDay(dayId) {
       await Promise.race([
         (async () => {
           await addDoc(collection(db, "users", currentUser.uid, "logs"), entry);
-          await saveLastData(exercisesData);
+          await saveLastData(exercisesData, durations, lastDataMap);
           if (dayId !== "emergencia") await markComplete(dayId);
           if (dayId === "emergencia") await markComplete("emergencia_" + isoDate(new Date()));
         })(),

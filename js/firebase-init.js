@@ -4,7 +4,7 @@ import {
   createUserWithEmailAndPassword, signOut, GoogleAuthProvider, signInWithPopup
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import {
-  initializeFirestore, doc, getDoc, setDoc, updateDoc, collection,
+  initializeFirestore, doc, getDoc, setDoc, updateDoc, deleteDoc, collection,
   addDoc, query, where, orderBy, getDocs, serverTimestamp, Timestamp
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
@@ -33,6 +33,6 @@ export const db = initializeFirestore(app, {
 export {
   onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword,
   signOut, GoogleAuthProvider, signInWithPopup,
-  doc, getDoc, setDoc, updateDoc, collection, addDoc, query, where, orderBy,
+  doc, getDoc, setDoc, updateDoc, deleteDoc, collection, addDoc, query, where, orderBy,
   getDocs, serverTimestamp, Timestamp
 };
