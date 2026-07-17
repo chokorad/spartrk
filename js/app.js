@@ -32,10 +32,17 @@ function getMonday(d) {
 }
 function isoDate(d) { return d.toISOString().slice(0, 10); }
 function fmtDate(d) { return d.toLocaleDateString("es-MX", { day: "numeric", month: "short" }); }
+// ejercicios extra que vienen dentro de rutinas importadas del catálogo (no están
+// en el catálogo base EXERCISES). Se reconstruye cada vez que se cargan las rutinas.
+let extraExercises = {};
+function getExercise(id) {
+  return EXERCISES[id] || extraExercises[id] || { nombre: id, instrucciones: "", img: null };
+}
+
 function imgSrc(exerciseId) {
   const ov = overrides[exerciseId];
   if (ov && ov.img) return ov.img;
-  return EXERCISES[exerciseId].img;
+  return getExercise(exerciseId).img;
 }
 
 async function loadOverrides() {
@@ -113,7 +120,41 @@ async function loadRoutines() {
   const map = {};
   const snap = await getDocs(collection(db, "users", currentUser.uid, "routines"));
   snap.forEach((d) => { map[d.id] = d.data(); });
+  extraExercises = {};
+  Object.values(map).forEach((r) => { if (r.customExercises) Object.assign(extraExercises, r.customExercises); });
   return map;
+}
+
+// convierte una rutina guardada en la lista de ejercicios con sus series:
+// las importadas del catálogo traen su propio esquema (items con sets propios),
+// las creadas a mano usan las 4 series ascendentes clásicas.
+function routineToExercises(r) {
+  if (Array.isArray(r.items) && r.items.length) {
+    return r.items.map((it) => ({ id: it.id, sets: Array.isArray(it.sets) && it.sets.length ? it.sets : ASCENDING_SETS }));
+  }
+  return (r.exerciseIds || []).map((eid) => ({ id: eid, sets: ASCENDING_SETS }));
+}
+function routineExerciseCount(r) {
+  return Array.isArray(r.items) && r.items.length ? r.items.length : (r.exerciseIds || []).length;
+}
+
+// catálogo de rutinas del coach: carpeta rutinas/ en el mismo repo de GitHub Pages.
+// index.json lista los archivos; cada uno es una rutina con items y customExercises.
+// Se lee siempre fresco de la red (el service worker no lo cachea con cache-first).
+async function fetchCatalogRoutines() {
+  try {
+    const res = await fetch("rutinas/index.json", { cache: "no-store" });
+    if (!res.ok) return [];
+    const idx = await res.json();
+    const files = Array.isArray(idx.rutinas) ? idx.rutinas : [];
+    const loaded = await Promise.all(files.map(async (f) => {
+      try {
+        const r = await fetch("rutinas/" + f, { cache: "no-store" });
+        return r.ok ? await r.json() : null;
+      } catch (e) { return null; }
+    }));
+    return loaded.filter((r) => r && r.id && r.nombre && Array.isArray(r.items) && r.items.length);
+  } catch (e) { return []; }
 }
 
 async function saveRoutine(routineId, data) {
@@ -145,6 +186,35 @@ async function resetWeekPlan(existingPlan) {
   await setDoc(doc(db, "users", currentUser.uid, "settings", "weekPlan"), { ...base, enabled: false });
 }
 
+// --- método de progresión de peso (configurable por usuario) ---
+// "tut" (tiempo bajo tensión) es el modo por defecto: solo cuentan las reps lentas.
+const PROGRESSION_MODES = {
+  total: {
+    label: "Reps totales",
+    desc: "Cuentan todas las reps sin importar la velocidad. Al lograr 6 reps en la serie efectiva, el peso sugerido sube ~5%. Si no completas 4, baja ~5%."
+  },
+  tut: {
+    label: "Tiempo bajo tensión",
+    desc: "Solo cuentan las reps lentas y controladas (ej. 3 seg bajando, 2 subiendo). Al lograr 6 lentas limpias en la serie efectiva, el peso sugerido sube ~5%. Si no completas 4 reps, baja ~5%."
+  },
+  sensacion: {
+    label: "Sensación de dificultad",
+    desc: "Tú decides: si marcas la serie efectiva como \"Fácil\", el peso sugerido sube ~5%. Si marcas \"No completé\", baja ~5%."
+  }
+};
+let progressionMode = "tut";
+
+async function loadProgressionMode() {
+  const snap = await getDoc(doc(db, "users", currentUser.uid, "settings", "progression"));
+  progressionMode = (snap.exists() && PROGRESSION_MODES[snap.data().mode]) ? snap.data().mode : "tut";
+  return progressionMode;
+}
+
+async function saveProgressionMode(mode) {
+  progressionMode = mode;
+  await setDoc(doc(db, "users", currentUser.uid, "settings", "progression"), { mode });
+}
+
 // resuelve el plan "en efecto" a partir del weekPlan guardado (si está activo) o
 // del clásico DAYS (si no hay configuración o está desactivada).
 function resolveEffectivePlan(weekPlan, routinesMap) {
@@ -161,7 +231,7 @@ function resolveEffectivePlan(weekPlan, routinesMap) {
       if (DAYS[classicKey]) slots.push({ id: key, nombre: DAYS[classicKey].nombre, exercises: DAYS[classicKey].exercises });
     } else {
       const r = routinesMap[assign];
-      if (r) slots.push({ id: key, nombre: r.nombre, exercises: r.exerciseIds.map((eid) => ({ id: eid, sets: ASCENDING_SETS })) });
+      if (r) slots.push({ id: key, nombre: r.nombre, exercises: routineToExercises(r) });
     }
   }
   return slots;
@@ -287,7 +357,7 @@ function openExtraDaySheet(routinesMap) {
     overlay.innerHTML = `
       <div class="sheet">
         <h3>Elige una rutina para hoy</h3>
-        ${ids.map((id) => `<div class="routine-pick" data-id="${id}"><div class="name">${routinesMap[id].nombre}</div><div class="count">${routinesMap[id].exerciseIds.length} ejercicios</div></div>`).join("")}
+        ${ids.map((id) => `<div class="routine-pick" data-id="${id}"><div class="name">${routinesMap[id].nombre}</div><div class="count">${routineExerciseCount(routinesMap[id])} ejercicios</div></div>`).join("")}
         <button class="secondary-btn" id="closeSheet">Cancelar</button>
       </div>`;
   }
@@ -298,7 +368,7 @@ function openExtraDaySheet(routinesMap) {
       const id = el.dataset.id;
       const r = routinesMap[id];
       overlay.remove();
-      const exList = r.exerciseIds.map((eid) => ({ id: eid, sets: ASCENDING_SETS }));
+      const exList = routineToExercises(r);
       const extraDayId = "extra_" + id + "_" + isoDate(new Date());
       renderDay(extraDayId, { exList, label: "Día extra - " + r.nombre });
     };
@@ -389,7 +459,7 @@ function buildCalendarSection() {
 // --- pantalla de configuración de rutinas (fase C) ---
 async function renderConfig() {
   clearApp();
-  const [weekPlan, routinesMap] = await Promise.all([loadWeekPlan(), loadRoutines()]);
+  const [weekPlan, routinesMap] = await Promise.all([loadWeekPlan(), loadRoutines(), loadProgressionMode()]);
   currentRoutinesMap = routinesMap;
 
   const top = document.createElement("div");
@@ -406,6 +476,40 @@ async function renderConfig() {
   note.style.cssText = "font-size:11px; color:#6a6a6a; margin-bottom:14px; line-height:1.5;";
   note.textContent = "Esto solo se activa cuando guardas un cambio aquí. Si no tocas nada, tu semana sigue siendo Día 1-4 tal cual.";
   app.appendChild(note);
+
+  // --- método de progresión de peso ---
+  const fieldLabelProg = document.createElement("div");
+  fieldLabelProg.className = "field-label";
+  fieldLabelProg.textContent = "Método de progresión de peso";
+  app.appendChild(fieldLabelProg);
+
+  const progSelect = document.createElement("select");
+  progSelect.style.cssText = "width:100%; margin-bottom:6px;";
+  Object.entries(PROGRESSION_MODES).forEach(([key, m]) => {
+    const opt = document.createElement("option");
+    opt.value = key;
+    opt.textContent = m.label;
+    if (key === progressionMode) opt.selected = true;
+    progSelect.appendChild(opt);
+  });
+  app.appendChild(progSelect);
+
+  const progDesc = document.createElement("p");
+  progDesc.style.cssText = "font-size:11px; color:#8a8a8a; margin-bottom:4px; line-height:1.5;";
+  progDesc.textContent = PROGRESSION_MODES[progressionMode].desc;
+  app.appendChild(progDesc);
+
+  const progSaved = document.createElement("p");
+  progSaved.style.cssText = "font-size:10px; color:#8fd18f; margin-bottom:14px; display:none;";
+  progSaved.textContent = "Guardado ✓";
+  app.appendChild(progSaved);
+
+  progSelect.addEventListener("change", async () => {
+    progDesc.textContent = PROGRESSION_MODES[progSelect.value].desc;
+    await saveProgressionMode(progSelect.value);
+    progSaved.style.display = "block";
+    setTimeout(() => { progSaved.style.display = "none"; }, 2000);
+  });
 
   const fieldLabel1 = document.createElement("div");
   fieldLabel1.className = "field-label";
@@ -425,8 +529,12 @@ async function renderConfig() {
       const r = routinesMap[id];
       const row = document.createElement("div");
       row.className = "routine-row";
-      row.innerHTML = `<div><div class="name">${r.nombre}</div><div class="count">${r.exerciseIds.length} ejercicios</div></div><button class="edit" type="button">editar</button>`;
-      row.querySelector(".edit").onclick = () => renderRoutineEditor(id);
+      const isCatalog = Array.isArray(r.items) && r.items.length;
+      row.innerHTML = `<div><div class="name">${r.nombre}</div><div class="count">${routineExerciseCount(r)} ejercicios${isCatalog ? " · del catálogo" : ""}</div></div><button class="edit" type="button">${isCatalog ? "quitar" : "editar"}</button>`;
+      row.querySelector(".edit").onclick = async () => {
+        if (isCatalog) { await deleteRoutineDoc(id); renderConfig(); }
+        else renderRoutineEditor(id);
+      };
       routineList.appendChild(row);
     });
   }
@@ -437,6 +545,41 @@ async function renderConfig() {
   addBtn.textContent = "+ Nueva rutina";
   addBtn.onclick = () => renderRoutineEditor(null);
   app.appendChild(addBtn);
+
+  // --- rutinas del catálogo (carpeta rutinas/ en el repo de GitHub) ---
+  const fieldLabelCat = document.createElement("div");
+  fieldLabelCat.className = "field-label";
+  fieldLabelCat.textContent = "Rutinas del catálogo";
+  app.appendChild(fieldLabelCat);
+
+  const catWrap = document.createElement("div");
+  catWrap.innerHTML = `<p style="font-size:11px; color:#6a6a6a; margin-bottom:10px;">Cargando catálogo...</p>`;
+  app.appendChild(catWrap);
+
+  fetchCatalogRoutines().then((catalog) => {
+    catWrap.innerHTML = "";
+    if (!catalog.length) {
+      catWrap.innerHTML = `<p style="font-size:11px; color:#6a6a6a; margin-bottom:10px;">No hay rutinas en el catálogo (o no hay conexión).</p>`;
+      return;
+    }
+    const importedIds = new Set(Object.values(routinesMap).map((r) => r.catalogId).filter(Boolean));
+    catalog.forEach((c) => {
+      const row = document.createElement("div");
+      row.className = "routine-row";
+      const done = importedIds.has(c.id);
+      row.innerHTML = `<div><div class="name">${c.nombre}</div><div class="count">${c.items.length} ejercicios${c.descripcion ? " — " + c.descripcion : ""}</div></div><button class="edit" type="button"${done ? " disabled" : ""}>${done ? "importada ✓" : "importar"}</button>`;
+      const btn = row.querySelector(".edit");
+      if (!done) {
+        btn.onclick = async () => {
+          btn.disabled = true;
+          btn.textContent = "importando...";
+          await saveRoutine(null, { nombre: c.nombre, catalogId: c.id, items: c.items, customExercises: c.customExercises || {} });
+          renderConfig();
+        };
+      }
+      catWrap.appendChild(row);
+    });
+  });
 
   const fieldLabel2 = document.createElement("div");
   fieldLabel2.className = "field-label";
@@ -593,7 +736,7 @@ function renderRoutineEditor(routineId) {
 }
 
 function buildExerciseBlock(exerciseId, sets, dayLabel, opts = {}) {
-  const ex = EXERCISES[exerciseId];
+  const ex = getExercise(exerciseId);
   const lastData = opts.lastData;
   const draft = opts.draft;
   const onChange = opts.onChange || (() => {});
@@ -610,7 +753,7 @@ function buildExerciseBlock(exerciseId, sets, dayLabel, opts = {}) {
     <button class="toggle-btn" type="button">Ver cómo se hace &#9662;</button>
     <div class="toggle-content" style="display:none;">
       <div class="exercise-anim">
-        <img src="${imgSrc(exerciseId)}" data-which="img">
+        <img src="${imgSrc(exerciseId) || "icons/icon-192.png"}" data-which="img">
         <button class="change-photo-btn" data-which="img">cambiar foto</button>
       </div>
       <p class="instructions">${ex.instrucciones}</p>
@@ -669,16 +812,63 @@ function buildExerciseBlock(exerciseId, sets, dayLabel, opts = {}) {
   block.appendChild(unitRow);
   const unitSelect = unitRow.querySelector('[data-field="unidad"]');
 
+  // Regla de progresión según el método elegido en Configuración:
+  // - "tut" (tiempo bajo tensión): solo cuentan las reps lentas; sube 5% con 6 lentas limpias.
+  // - "total" (reps totales): cuentan todas las reps; sube 5% al llegar a 6.
+  // - "sensacion": sube 5% si marcó "Fácil", baja 5% si "No completé".
+  // En "tut" y "total" también baja 5% si no completó o sacó menos de 4 reps.
+  const REPS_META_LENTAS = 6;
+  const REPS_MIN_EFECTIVA = 4;
+  const isTUT = progressionMode === "tut";
   const idx100 = sets.findIndex((s) => s.pct === 100);
   let currentMax = null;
+  let progressMsg = null;
   if (idx100 !== -1 && lastData && lastData.sets && lastData.sets[idx100] && lastData.sets[idx100].peso) {
     const refSet = lastData.sets[idx100];
     const base = parseFloat(refSet.peso);
-    const allSlow = parseInt(refSet.repsNormales || 0) === 0 && parseInt(refSet.repsLentas || 0) > 0;
+    const lentas = parseInt(refSet.repsLentas) || 0;
+    const normales = parseInt(refSet.repsNormales) || 0;
+    const total = lentas + normales;
     let factor = 1;
-    if (refSet.sensacion === "Fácil" || allSlow) factor = 1.05;
-    else if (refSet.sensacion === "No completé") factor = 0.95;
+    if (progressionMode === "sensacion") {
+      if (refSet.sensacion === "No completé") {
+        factor = 0.95;
+        progressMsg = "La vez pasada no completaste: bajamos ~5% el peso sugerido.";
+      } else if (refSet.sensacion === "Fácil") {
+        factor = 1.05;
+        progressMsg = "La vez pasada se sintió fácil: hoy el peso sugerido sube ~5%.";
+      }
+    } else if (progressionMode === "total") {
+      if (refSet.sensacion === "No completé" || (total > 0 && total < REPS_MIN_EFECTIVA)) {
+        factor = 0.95;
+        progressMsg = "Bajamos ~5% para consolidar. Meta: " + REPS_MIN_EFECTIVA + "-" + REPS_META_LENTAS + " reps.";
+      } else if (total >= REPS_META_LENTAS) {
+        factor = 1.05;
+        progressMsg = "¡Lograste " + total + " reps! Hoy sube el peso: meta " + REPS_MIN_EFECTIVA + "-" + REPS_META_LENTAS + " reps con el nuevo peso.";
+      } else if (total > 0) {
+        progressMsg = "Anterior: " + total + "/" + REPS_META_LENTAS + " reps — te falta" + (REPS_META_LENTAS - total === 1 ? "" : "n") + " " + (REPS_META_LENTAS - total) + " para subir de peso. Mismo peso hoy.";
+      }
+    } else {
+      if (refSet.sensacion === "No completé" || (total > 0 && total < REPS_MIN_EFECTIVA)) {
+        factor = 0.95;
+        progressMsg = "Bajamos ~5% para consolidar. Meta: " + REPS_MIN_EFECTIVA + "-" + REPS_META_LENTAS + " lentas limpias.";
+      } else if (lentas >= REPS_META_LENTAS && normales === 0) {
+        factor = 1.05;
+        progressMsg = "¡Lograste " + lentas + " lentas limpias! Hoy sube el peso: meta " + REPS_MIN_EFECTIVA + "-" + REPS_META_LENTAS + " lentas con el nuevo peso.";
+      } else if (lentas > 0 && normales === 0) {
+        progressMsg = "Anterior: " + lentas + "/" + REPS_META_LENTAS + " lentas — te falta" + (REPS_META_LENTAS - lentas === 1 ? "" : "n") + " " + (REPS_META_LENTAS - lentas) + " para subir de peso. Mismo peso hoy.";
+      } else if (normales > 0) {
+        progressMsg = "Anterior: " + lentas + " lentas + " + normales + " normales. Las normales no cuentan para subir: meta " + REPS_META_LENTAS + " lentas limpias con este peso.";
+      }
+    }
     currentMax = Math.floor(base * factor);
+  }
+
+  if (progressMsg) {
+    const progressHint = document.createElement("p");
+    progressHint.className = "progress-hint";
+    progressHint.textContent = progressMsg;
+    block.appendChild(progressHint);
   }
 
   const suggestHint = document.createElement("p");
@@ -731,8 +921,8 @@ function buildExerciseBlock(exerciseId, sets, dayLabel, opts = {}) {
     inputRow.className = "set-input-row" + (isPrefilled ? " prefilled" : "");
     inputRow.innerHTML = `
       <input type="number" placeholder="peso" data-field="peso" value="${pesoVal}">
-      <input type="number" placeholder="lentas" data-field="repsLentas" value="${lentasVal}">
-      <input type="number" placeholder="normal" data-field="repsNormales" value="${normalesVal}">
+      <input type="number" placeholder="lentas" data-field="repsLentas" value="${lentasVal}"${isTUT ? "" : ' style="display:none;"'}>
+      <input type="number" placeholder="${isTUT ? "normal" : "reps"}" data-field="repsNormales" value="${normalesVal}">
       <select data-field="sensacion">
         ${SENS_OPTIONS.map((o) => `<option${o === sensVal ? " selected" : ""}>${o}</option>`).join("")}
       </select>
@@ -740,6 +930,44 @@ function buildExerciseBlock(exerciseId, sets, dayLabel, opts = {}) {
     setsWrap.appendChild(inputRow);
     inputs.push(inputRow);
     if (draftSet) touched[i] = true;
+
+    // aviso en vivo en la serie efectiva: avisa cuando ya se ganó la subida de peso
+    // según el método de progresión activo (en "sensacion" no aplica: ahí decide el select).
+    let liveHint = null;
+    if (s.pct === 100 && progressionMode !== "sensacion") {
+      liveHint = document.createElement("p");
+      liveHint.className = "live-progress-hint";
+      liveHint.style.display = "none";
+      setsWrap.appendChild(liveHint);
+      const updateLiveHint = () => {
+        const lv = parseInt(inputRow.querySelector('[data-field="repsLentas"]').value) || 0;
+        const nv = parseInt(inputRow.querySelector('[data-field="repsNormales"]').value) || 0;
+        if (isTUT) {
+          if (lv >= REPS_META_LENTAS && nv === 0) {
+            liveHint.textContent = "✓ " + lv + " lentas limpias — la próxima sesión sube el peso.";
+            liveHint.style.display = "block";
+          } else if (lv > 0 || nv > 0) {
+            liveHint.textContent = lv + "/" + REPS_META_LENTAS + " lentas" + (nv > 0 ? " (+" + nv + " normales, no cuentan para subir)" : "");
+            liveHint.style.display = "block";
+          } else {
+            liveHint.style.display = "none";
+          }
+        } else {
+          const tot = lv + nv;
+          if (tot >= REPS_META_LENTAS) {
+            liveHint.textContent = "✓ " + tot + " reps — la próxima sesión sube el peso.";
+            liveHint.style.display = "block";
+          } else if (tot > 0) {
+            liveHint.textContent = tot + "/" + REPS_META_LENTAS + " reps";
+            liveHint.style.display = "block";
+          } else {
+            liveHint.style.display = "none";
+          }
+        }
+      };
+      inputRow.querySelectorAll("input").forEach((el) => el.addEventListener("input", updateLiveHint));
+      updateLiveHint();
+    }
 
     function markTouched() {
       if (!exerciseStartedAt) exerciseStartedAt = Date.now();
@@ -999,7 +1227,7 @@ async function renderDay(dayId, extraOverride) {
   }
 
   const allIds = exList.map((e) => e.id).concat(isEmergency ? [] : [DAILY_TASK.storageId]);
-  const lastDataMap = await loadLastData(allIds);
+  const [lastDataMap] = await Promise.all([loadLastData(allIds), loadProgressionMode()]);
 
   // usa el promedio real de tus últimas sesiones para ese ejercicio si ya existe,
   // si no, cae al estimado genérico por número de series.
@@ -1054,7 +1282,7 @@ async function renderDay(dayId, extraOverride) {
   exList.forEach((e) => {
     const dotEl = document.createElement("div");
     dotEl.className = "pdot";
-    dotEl.title = EXERCISES[e.id].nombre;
+    dotEl.title = getExercise(e.id).nombre;
     dotsWrap.appendChild(dotEl);
 
     const b = buildExerciseBlock(e.id, e.sets, label, {

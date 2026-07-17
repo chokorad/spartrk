@@ -1,0 +1,72 @@
+{
+  "id": "hombro_dia_libre",
+  "nombre": "Hombro - Día libre",
+  "descripcion": "Deltoides completo + core. Esquema de esfuerzo RPE: deja 1-2 reps en reserva donde se indica, y respeta los descansos.",
+  "customExercises": {
+    "military_press": {
+      "nombre": "Press militar (máquina o mancuerna)",
+      "instrucciones": "Sentado con la espalda apoyada, empuja el peso desde la altura de los hombros hasta extender los brazos arriba sin bloquear los codos de golpe. Baja controlado hasta la altura de las orejas. RPE 8-9: esfuerzo alto pero con 1-2 reps en reserva.",
+      "img": null
+    },
+    "lateral_raise_dura": {
+      "nombre": "Elevación lateral (serie dura)",
+      "instrucciones": "Máquina o mancuernas. Eleva los brazos 'hacia afuera', no 'hacia arriba', hasta la altura del hombro, con ligero doblez en el codo. Esta NO es la bombeada ligera diaria: llévala casi al fallo (RPE 9-10).",
+      "img": null
+    },
+    "rear_delt": {
+      "nombre": "Pájaros o face pull (deltoide posterior)",
+      "instrucciones": "Pájaros: inclinado con mancuernas, abre los brazos hacia atrás apretando el deltoide posterior. Face pull: jala la cuerda de la polea hacia la cara con los codos altos. Controla la vuelta, sin impulso.",
+      "img": null
+    },
+    "plank_crunch": {
+      "nombre": "Plancha o crunch en máquina",
+      "instrucciones": "Plancha: cuerpo recto de cabeza a talones, apoyado en antebrazos, abdomen apretado, aguanta hasta cerca del fallo. O crunch en máquina: redondea la espalda al contraer, cerca del fallo.",
+      "img": null
+    },
+    "hanging_leg_raise": {
+      "nombre": "Elevación de piernas colgado o crunch en polea",
+      "instrucciones": "Colgado de la barra, sube las rodillas al pecho sin balancearte y baja controlado (estira más las piernas para subir dificultad). O crunch en polea de rodillas, apretando el abdomen para mover el peso.",
+      "img": null
+    }
+  },
+  "items": [
+    {
+      "id": "military_press",
+      "sets": [
+        { "label": "Calentamiento 1 · ligero (~50%)", "noInput": true },
+        { "label": "Calentamiento 2 · medio (~70%)", "noInput": true },
+        { "label": "Serie 1 · 8-10 reps · RPE 8-9 · desc 2 min", "reps": 10 },
+        { "label": "Serie 2 · 8-10 reps · RPE 8-9 · desc 2 min", "reps": 10 },
+        { "label": "Serie 3 · 8-10 reps · RPE 8-9 · desc 2 min", "reps": 10 }
+      ]
+    },
+    {
+      "id": "lateral_raise_dura",
+      "sets": [
+        { "label": "Serie 1 · 12-15 reps · RPE 9-10 · desc 1.5 min", "reps": 15 },
+        { "label": "Serie 2 · 12-15 reps · RPE 9-10 · desc 1.5 min", "reps": 15 }
+      ]
+    },
+    {
+      "id": "rear_delt",
+      "sets": [
+        { "label": "Serie 1 · 12-15 reps · RPE 9 · desc 1.5 min", "reps": 15 },
+        { "label": "Serie 2 · 12-15 reps · RPE 9 · desc 1.5 min", "reps": 15 }
+      ]
+    },
+    {
+      "id": "plank_crunch",
+      "sets": [
+        { "label": "Serie 1 · al fallo o cerca · desc 1 min", "reps": 15 },
+        { "label": "Serie 2 · al fallo o cerca · desc 1 min", "reps": 15 }
+      ]
+    },
+    {
+      "id": "hanging_leg_raise",
+      "sets": [
+        { "label": "Serie 1 · al fallo o cerca · desc 1 min", "reps": 15 },
+        { "label": "Serie 2 · al fallo o cerca · desc 1 min", "reps": 15 }
+      ]
+    }
+  ]
+}

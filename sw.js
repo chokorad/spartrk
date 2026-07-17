@@ -1,4 +1,4 @@
-const CACHE_NAME = 'spartrk-v13';
+const CACHE_NAME = 'spartrk-v14';
 const APP_SHELL = [
   './',
   './index.html',
@@ -30,6 +30,21 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
   if (url.origin !== self.location.origin) return;
+  // el catálogo de rutinas siempre se intenta leer fresco de la red (network-first),
+  // con el caché solo como respaldo offline. Así las rutinas nuevas del repo
+  // aparecen sin necesidad de bumpear la versión del service worker.
+  if (url.pathname.includes('/rutinas/')) {
+    event.respondWith(
+      fetch(event.request).then((response) => {
+        if (response.ok && event.request.method === 'GET') {
+          const clone = response.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
+        }
+        return response;
+      }).catch(() => caches.match(event.request))
+    );
+    return;
+  }
   event.respondWith(
     caches.match(event.request).then((cached) => {
       if (cached) return cached;
