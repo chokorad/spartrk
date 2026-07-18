@@ -1,0 +1,27 @@
+{
+  "id": "power_arms_dia2_triceps",
+  "nombre": "(Día 2) Power Arms Routine - Tríceps",
+  "descripcion": "Día 2 (Miércoles) de Power Arms Routine: tríceps.",
+  "customExercises": {
+    "bench_dips": { "nombre": "Bench Dips", "instrucciones": "", "img": null },
+    "push_ups_close_wide": { "nombre": "Push-Ups (Close and Wide Hand Positions)", "instrucciones": "", "img": null },
+    "seated_triceps_press": { "nombre": "Seated Triceps Press", "instrucciones": "", "img": null },
+    "jm_press": { "nombre": "JM Press", "instrucciones": "", "img": null },
+    "triceps_pushdown_vbar": { "nombre": "Triceps Pushdown V-Bar", "instrucciones": "", "img": null },
+    "one_arm_triceps_extension": { "nombre": "One Arm Triceps Extension", "instrucciones": "", "img": null }
+  },
+  "items": [
+    { "id": "bench_dips", "sets": [ { "label": "Serie 1 · 15 reps", "reps": 15 }, { "label": "Serie 2 · 15 reps", "reps": 15 } ] },
+    { "id": "push_ups_close_wide", "sets": [ { "label": "Serie 1 · 15 reps", "reps": 15 }, { "label": "Serie 2 · 15 reps", "reps": 15 } ] },
+    { "id": "seated_triceps_press", "sets": [
+      { "label": "Serie 1 · 10 reps", "reps": 10 }, { "label": "Serie 2 · 10 reps", "reps": 10 },
+      { "label": "Serie 3 · 10 reps", "reps": 10 }, { "label": "Serie 4 · 10 reps", "reps": 10 }
+    ] },
+    { "id": "jm_press", "sets": [
+      { "label": "Serie 1 · 10 reps", "reps": 10 }, { "label": "Serie 2 · 10 reps", "reps": 10 },
+      { "label": "Serie 3 · 10 reps", "reps": 10 }, { "label": "Serie 4 · 10 reps", "reps": 10 }
+    ] },
+    { "id": "triceps_pushdown_vbar", "sets": [ { "label": "Serie 1 · 10 reps", "reps": 10 }, { "label": "Serie 2 · 10 reps", "reps": 10 } ] },
+    { "id": "one_arm_triceps_extension", "sets": [ { "label": "Serie 1 · 10 reps", "reps": 10 }, { "label": "Serie 2 · 10 reps", "reps": 10 } ] }
+  ]
+}

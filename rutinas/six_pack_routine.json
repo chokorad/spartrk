@@ -1,0 +1,23 @@
+{
+  "id": "six_pack_routine",
+  "nombre": "Six-Pack Routine",
+  "descripcion": "Rutina de abdomen con cardio final en caminadora.",
+  "customExercises": {
+    "crunches_sixpack": { "nombre": "Crunches", "instrucciones": "", "img": null },
+    "leg_raise": { "nombre": "Leg Raise", "instrucciones": "", "img": null },
+    "side_bend": { "nombre": "Side Bend", "instrucciones": "", "img": null },
+    "cross_body_crunch": { "nombre": "Cross Body Crunch", "instrucciones": "", "img": null },
+    "decline_crunch": { "nombre": "Decline Crunch", "instrucciones": "", "img": null },
+    "decline_oblique_crunch": { "nombre": "Decline Oblique Crunch", "instrucciones": "", "img": null },
+    "treadmill": { "nombre": "Treadmill", "instrucciones": "", "img": null }
+  },
+  "items": [
+    { "id": "crunches_sixpack", "sets": [ { "label": "Serie 1 · 12 reps", "reps": 12 }, { "label": "Serie 2 · 12 reps", "reps": 12 } ] },
+    { "id": "leg_raise", "sets": [ { "label": "Serie 1 · 12 reps", "reps": 12 }, { "label": "Serie 2 · 12 reps", "reps": 12 } ] },
+    { "id": "side_bend", "sets": [ { "label": "Serie 1 · 12 reps", "reps": 12 }, { "label": "Serie 2 · 12 reps", "reps": 12 } ] },
+    { "id": "cross_body_crunch", "sets": [ { "label": "Serie 1 · 12 reps", "reps": 12 }, { "label": "Serie 2 · 12 reps", "reps": 12 } ] },
+    { "id": "decline_crunch", "sets": [ { "label": "Serie 1 · 12 reps", "reps": 12 }, { "label": "Serie 2 · 12 reps", "reps": 12 } ] },
+    { "id": "decline_oblique_crunch", "sets": [ { "label": "Serie 1 · 12 reps", "reps": 12 }, { "label": "Serie 2 · 12 reps", "reps": 12 } ] },
+    { "id": "treadmill", "sets": [ { "label": "20 min", "noInput": true } ] }
+  ]
+}

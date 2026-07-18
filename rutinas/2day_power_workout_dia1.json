@@ -1,0 +1,49 @@
+{
+  "id": "2day_power_workout_dia1",
+  "nombre": "(Día 1) 2 Day Power Workout",
+  "descripcion": "Día 1 de la rutina 2 Day Power Workout: pecho, hombro, brazo y abdomen.",
+  "customExercises": {
+    "machine_bench_press": { "nombre": "Machine Bench Press", "instrucciones": "", "img": null },
+    "butterfly": { "nombre": "Butterfly", "instrucciones": "", "img": null },
+    "standing_smith_behind_head_press": { "nombre": "Standing Smith Machine Behind The Head Press", "instrucciones": "", "img": null },
+    "cable_lateral_raise": { "nombre": "Cable Lateral Raise", "instrucciones": "", "img": null },
+    "machine_preacher_curls": { "nombre": "Machine Preacher Curls", "instrucciones": "", "img": null },
+    "hammer_curls_2dp": { "nombre": "Hammer Curls", "instrucciones": "", "img": null },
+    "ab_crunch_machine": { "nombre": "Ab Crunch Machine", "instrucciones": "", "img": null },
+    "bench_knee_raise": { "nombre": "Bench Knee Raise", "instrucciones": "", "img": null }
+  },
+  "items": [
+    { "id": "machine_bench_press", "sets": [
+      { "label": "Serie 1 · 15 reps", "reps": 15 }, { "label": "Serie 2 · 15 reps", "reps": 15 },
+      { "label": "Serie 3 · 15 reps", "reps": 15 }, { "label": "Serie 4 · 15 reps", "reps": 15 }
+    ] },
+    { "id": "butterfly", "sets": [
+      { "label": "Serie 1 · 15 reps", "reps": 15 }, { "label": "Serie 2 · 15 reps", "reps": 15 },
+      { "label": "Serie 3 · 15 reps", "reps": 15 }, { "label": "Serie 4 · 15 reps", "reps": 15 }
+    ] },
+    { "id": "standing_smith_behind_head_press", "sets": [
+      { "label": "Serie 1 · 15 reps", "reps": 15 }, { "label": "Serie 2 · 15 reps", "reps": 15 },
+      { "label": "Serie 3 · 15 reps", "reps": 15 }, { "label": "Serie 4 · 15 reps", "reps": 15 }
+    ] },
+    { "id": "cable_lateral_raise", "sets": [
+      { "label": "Serie 1 · 15 reps", "reps": 15 }, { "label": "Serie 2 · 15 reps", "reps": 15 },
+      { "label": "Serie 3 · 15 reps", "reps": 15 }, { "label": "Serie 4 · 15 reps", "reps": 15 }
+    ] },
+    { "id": "machine_preacher_curls", "sets": [
+      { "label": "Serie 1 · 15 reps", "reps": 15 }, { "label": "Serie 2 · 15 reps", "reps": 15 },
+      { "label": "Serie 3 · 15 reps", "reps": 15 }, { "label": "Serie 4 · 15 reps", "reps": 15 }
+    ] },
+    { "id": "hammer_curls_2dp", "sets": [
+      { "label": "Serie 1 · 15 reps", "reps": 15 }, { "label": "Serie 2 · 15 reps", "reps": 15 },
+      { "label": "Serie 3 · 15 reps", "reps": 15 }, { "label": "Serie 4 · 15 reps", "reps": 15 }
+    ] },
+    { "id": "ab_crunch_machine", "sets": [
+      { "label": "Serie 1 · 15 reps", "reps": 15 }, { "label": "Serie 2 · 15 reps", "reps": 15 },
+      { "label": "Serie 3 · 15 reps", "reps": 15 }, { "label": "Serie 4 · 15 reps", "reps": 15 }
+    ] },
+    { "id": "bench_knee_raise", "sets": [
+      { "label": "Serie 1 · 15 reps", "reps": 15 }, { "label": "Serie 2 · 15 reps", "reps": 15 },
+      { "label": "Serie 3 · 15 reps", "reps": 15 }, { "label": "Serie 4 · 15 reps", "reps": 15 }
+    ] }
+  ]
+}

@@ -1,0 +1,40 @@
+{
+  "id": "lower_body_b",
+  "nombre": "Lower Body B",
+  "descripcion": "Tren inferior B (The Muscle Building Workout Routine, AWorkoutRoutine.com). Parte del split upper/lower a 4 días: cada grupo se entrena 2x/semana.",
+  "customExercises": {
+    "squats_lbb": { "nombre": "Squats", "instrucciones": "Sentadilla trasera con barra. Si no te acomoda, sustituye por prensa a 45°.", "img": null },
+    "split_squats": { "nombre": "Split Squats", "instrucciones": "Sentadilla búlgara/split, con barra o mancuernas (mancuernas recomendado si es la primera vez que la haces).", "img": null },
+    "lying_leg_curls": { "nombre": "Lying Leg Curls", "instrucciones": "Curl femoral acostado — usa una variante distinta a la del día A si tu gym tiene más de un tipo de máquina.", "img": null },
+    "seated_calf_raises": { "nombre": "Seated Calf Raises", "instrucciones": "Elevación de talón sentado.", "img": null },
+    "abs_lbb": { "nombre": "Abs", "instrucciones": "Series libres de abdomen (igual criterio que en Lower Body A), sin pasar de ~10 min en total.", "img": null }
+  },
+  "items": [
+    { "id": "squats_lbb", "sets": [
+      { "label": "Serie 1 · 6-8 reps · desc 2-3 min", "reps": 8 },
+      { "label": "Serie 2 · 6-8 reps · desc 2-3 min", "reps": 8 },
+      { "label": "Serie 3 · 6-8 reps · desc 2-3 min", "reps": 8 }
+    ] },
+    { "id": "split_squats", "sets": [
+      { "label": "Serie 1 · 8-10 reps · desc 1-2 min", "reps": 10 },
+      { "label": "Serie 2 · 8-10 reps · desc 1-2 min", "reps": 10 },
+      { "label": "Serie 3 · 8-10 reps · desc 1-2 min", "reps": 10 }
+    ] },
+    { "id": "lying_leg_curls", "sets": [
+      { "label": "Serie 1 · 10-12 reps · desc 1-2 min", "reps": 12 },
+      { "label": "Serie 2 · 10-12 reps · desc 1-2 min", "reps": 12 },
+      { "label": "Serie 3 · 10-12 reps · desc 1-2 min", "reps": 12 }
+    ] },
+    { "id": "seated_calf_raises", "sets": [
+      { "label": "Serie 1 · 10-15 reps · desc 1-2 min", "reps": 15 },
+      { "label": "Serie 2 · 10-15 reps · desc 1-2 min", "reps": 15 },
+      { "label": "Serie 3 · 10-15 reps · desc 1-2 min", "reps": 15 },
+      { "label": "Serie 4 · 10-15 reps · desc 1-2 min", "reps": 15 }
+    ] },
+    { "id": "abs_lbb", "sets": [
+      { "label": "Serie 1 · 8-15 reps · desc 1 min", "reps": 15 },
+      { "label": "Serie 2 · 8-15 reps · desc 1 min", "reps": 15 },
+      { "label": "Serie 3 · 8-15 reps · desc 1 min", "reps": 15 }
+    ] }
+  ]
+}

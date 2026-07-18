@@ -1,0 +1,49 @@
+{
+  "id": "upper_body_a",
+  "nombre": "Upper Body A",
+  "descripcion": "Tren superior A (The Muscle Building Workout Routine, AWorkoutRoutine.com). Parte del split upper/lower a 4 días: cada grupo se entrena 2x/semana.",
+  "customExercises": {
+    "bench_press": { "nombre": "Bench Press", "instrucciones": "Press banca plano con barra. Se recomienda tener un compañero que dé seguridad (spotter).", "img": null },
+    "rows_uba": { "nombre": "Rows", "instrucciones": "Cualquier tipo de remo horizontal (barra, mancuerna, remo en T, máquina) — el que prefieras.", "img": null },
+    "incline_dumbbell_press": { "nombre": "Incline Dumbbell Press", "instrucciones": "Press inclinado con mancuernas. Si tienes molestias de hombro, usa agarre neutro (palmas enfrentadas).", "img": null },
+    "lat_pulldowns_uba": { "nombre": "Lat Pull-Downs", "instrucciones": "Jalón al pecho, por delante de la cabeza (nunca detrás del cuello). Agarre supino o neutro.", "img": null },
+    "lateral_raises_uba": { "nombre": "Lateral Raises", "instrucciones": "Elevación lateral, con mancuernas, cable o máquina — la que prefieras.", "img": null },
+    "triceps_pushdowns_uba": { "nombre": "Triceps Pushdowns", "instrucciones": "Extensión de tríceps en polea, agarre prono en barra o agarre neutro con cuerda.", "img": null },
+    "dumbbell_curls_uba": { "nombre": "Dumbbell Curls", "instrucciones": "Curl de bíceps con mancuernas (de pie, sentado o banco scott) — el que prefieras.", "img": null }
+  },
+  "items": [
+    { "id": "bench_press", "sets": [
+      { "label": "Serie 1 · 6-8 reps · desc 2-3 min", "reps": 8 },
+      { "label": "Serie 2 · 6-8 reps · desc 2-3 min", "reps": 8 },
+      { "label": "Serie 3 · 6-8 reps · desc 2-3 min", "reps": 8 }
+    ] },
+    { "id": "rows_uba", "sets": [
+      { "label": "Serie 1 · 6-8 reps · desc 2-3 min", "reps": 8 },
+      { "label": "Serie 2 · 6-8 reps · desc 2-3 min", "reps": 8 },
+      { "label": "Serie 3 · 6-8 reps · desc 2-3 min", "reps": 8 }
+    ] },
+    { "id": "incline_dumbbell_press", "sets": [
+      { "label": "Serie 1 · 8-10 reps · desc 1-2 min", "reps": 10 },
+      { "label": "Serie 2 · 8-10 reps · desc 1-2 min", "reps": 10 },
+      { "label": "Serie 3 · 8-10 reps · desc 1-2 min", "reps": 10 }
+    ] },
+    { "id": "lat_pulldowns_uba", "sets": [
+      { "label": "Serie 1 · 8-10 reps · desc 1-2 min", "reps": 10 },
+      { "label": "Serie 2 · 8-10 reps · desc 1-2 min", "reps": 10 },
+      { "label": "Serie 3 · 8-10 reps · desc 1-2 min", "reps": 10 }
+    ] },
+    { "id": "lateral_raises_uba", "sets": [
+      { "label": "Serie 1 · 10-15 reps · desc 1 min", "reps": 15 },
+      { "label": "Serie 2 · 10-15 reps · desc 1 min", "reps": 15 }
+    ] },
+    { "id": "triceps_pushdowns_uba", "sets": [
+      { "label": "Serie 1 · 10-12 reps · desc 1 min", "reps": 12 },
+      { "label": "Serie 2 · 10-12 reps · desc 1 min", "reps": 12 },
+      { "label": "Serie 3 · 10-12 reps · desc 1 min", "reps": 12 }
+    ] },
+    { "id": "dumbbell_curls_uba", "sets": [
+      { "label": "Serie 1 · 12-15 reps · desc 1 min", "reps": 15 },
+      { "label": "Serie 2 · 12-15 reps · desc 1 min", "reps": 15 }
+    ] }
+  ]
+}

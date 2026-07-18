@@ -1,0 +1,33 @@
+{
+  "id": "7_minutes_workout",
+  "nombre": "7 Minutes Workout",
+  "descripcion": "Circuito de 12 ejercicios de peso corporal, 30 segundos cada uno, sin descanso entre ejercicios.",
+  "customExercises": {
+    "jumping_jacks": { "nombre": "Jumping Jacks", "instrucciones": "", "img": null },
+    "wall_sit": { "nombre": "Wall Sit", "instrucciones": "", "img": null },
+    "push_ups_7m": { "nombre": "Push Ups", "instrucciones": "", "img": null },
+    "crunches_7min": { "nombre": "Crunches", "instrucciones": "", "img": null },
+    "step_up_onto_chair": { "nombre": "Step Up onto Chair", "instrucciones": "", "img": null },
+    "squats_7m": { "nombre": "Squats", "instrucciones": "", "img": null },
+    "dips_on_chair": { "nombre": "Dips on Chair", "instrucciones": "", "img": null },
+    "plank_7m": { "nombre": "Plank", "instrucciones": "", "img": null },
+    "high_knees_running_in_place": { "nombre": "High knees running in place", "instrucciones": "", "img": null },
+    "lunge_7m": { "nombre": "Lunge", "instrucciones": "", "img": null },
+    "push_up_and_rotation": { "nombre": "Push-up and rotation", "instrucciones": "", "img": null },
+    "side_plank_7m": { "nombre": "Side Plank", "instrucciones": "", "img": null }
+  },
+  "items": [
+    { "id": "jumping_jacks", "sets": [ { "label": "30 seg", "noInput": true } ] },
+    { "id": "wall_sit", "sets": [ { "label": "30 seg", "noInput": true } ] },
+    { "id": "push_ups_7m", "sets": [ { "label": "30 seg", "noInput": true } ] },
+    { "id": "crunches_7min", "sets": [ { "label": "30 seg", "noInput": true } ] },
+    { "id": "step_up_onto_chair", "sets": [ { "label": "30 seg", "noInput": true } ] },
+    { "id": "squats_7m", "sets": [ { "label": "30 seg", "noInput": true } ] },
+    { "id": "dips_on_chair", "sets": [ { "label": "30 seg", "noInput": true } ] },
+    { "id": "plank_7m", "sets": [ { "label": "30 seg", "noInput": true } ] },
+    { "id": "high_knees_running_in_place", "sets": [ { "label": "30 seg", "noInput": true } ] },
+    { "id": "lunge_7m", "sets": [ { "label": "30 seg", "noInput": true } ] },
+    { "id": "push_up_and_rotation", "sets": [ { "label": "30 seg", "noInput": true } ] },
+    { "id": "side_plank_7m", "sets": [ { "label": "30 seg", "noInput": true } ] }
+  ]
+}

@@ -1,0 +1,37 @@
+{
+  "id": "power_arms_dia1_biceps",
+  "nombre": "(Día 1) Power Arms Routine - Bíceps",
+  "descripcion": "Día 1 (Lunes) de Power Arms Routine: bíceps.",
+  "customExercises": {
+    "dumbbell_alternate_bicep_curl": { "nombre": "Dumbbell Alternate Bicep Curl", "instrucciones": "", "img": null },
+    "alternate_hammer_curl": { "nombre": "Alternate Hammer Curl", "instrucciones": "", "img": null },
+    "close_grip_standing_barbell_curl": { "nombre": "Close-Grip Standing Barbell Curl", "instrucciones": "", "img": null },
+    "reverse_bicep_curls": { "nombre": "Reverse Bicep Curls", "instrucciones": "", "img": null },
+    "standing_one_arm_cable_curl": { "nombre": "Standing One-Arm Cable Curl", "instrucciones": "", "img": null },
+    "cable_preacher_curl": { "nombre": "Cable Preacher Curl", "instrucciones": "", "img": null }
+  },
+  "items": [
+    { "id": "dumbbell_alternate_bicep_curl", "sets": [
+      { "label": "Serie 1 · 10 reps", "reps": 10 }, { "label": "Serie 2 · 10 reps", "reps": 10 },
+      { "label": "Serie 3 · 10 reps", "reps": 10 }, { "label": "Serie 4 · 10 reps", "reps": 10 }
+    ] },
+    { "id": "alternate_hammer_curl", "sets": [
+      { "label": "Serie 1 · 10 reps", "reps": 10 }, { "label": "Serie 2 · 10 reps", "reps": 10 },
+      { "label": "Serie 3 · 10 reps", "reps": 10 }, { "label": "Serie 4 · 10 reps", "reps": 10 }
+    ] },
+    { "id": "close_grip_standing_barbell_curl", "sets": [
+      { "label": "Serie 1 · 10 reps", "reps": 10 }, { "label": "Serie 2 · 10 reps", "reps": 10 },
+      { "label": "Serie 3 · 10 reps", "reps": 10 }, { "label": "Serie 4 · 10 reps", "reps": 10 }
+    ] },
+    { "id": "reverse_bicep_curls", "sets": [
+      { "label": "Serie 1 · 10 reps", "reps": 10 }, { "label": "Serie 2 · 10 reps", "reps": 10 },
+      { "label": "Serie 3 · 10 reps", "reps": 10 }, { "label": "Serie 4 · 10 reps", "reps": 10 }
+    ] },
+    { "id": "standing_one_arm_cable_curl", "sets": [
+      { "label": "Serie 1 · 10 reps", "reps": 10 }, { "label": "Serie 2 · 10 reps", "reps": 10 }
+    ] },
+    { "id": "cable_preacher_curl", "sets": [
+      { "label": "Serie 1 · 10 reps", "reps": 10 }, { "label": "Serie 2 · 10 reps", "reps": 10 }
+    ] }
+  ]
+}

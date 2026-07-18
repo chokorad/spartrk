@@ -1,0 +1,49 @@
+{
+  "id": "upper_body_b",
+  "nombre": "Upper Body B",
+  "descripcion": "Tren superior B (The Muscle Building Workout Routine, AWorkoutRoutine.com). Parte del split upper/lower a 4 días: cada grupo se entrena 2x/semana.",
+  "customExercises": {
+    "pull_ups_ubb": { "nombre": "Pull-Ups", "instrucciones": "Dominadas con agarre prono, por delante de la cabeza. Si no puedes, usa jalón al pecho o dominada asistida, buscando usar cada vez menos asistencia.", "img": null },
+    "barbell_shoulder_press": { "nombre": "Barbell Shoulder Press", "instrucciones": "Press militar con barra, sentado, por delante (nunca detrás de la cabeza). También puede ser con mancuernas.", "img": null },
+    "seated_cable_row_ubb": { "nombre": "Seated Cable Row", "instrucciones": "Remo sentado en polea, idealmente agarre neutro. Si no hay máquina, cualquier remo horizontal similar.", "img": null },
+    "dumbbell_bench_press_ubb": { "nombre": "Dumbbell Bench Press", "instrucciones": "Press banca plano con mancuernas.", "img": null },
+    "dumbbell_flyes_ubb": { "nombre": "Dumbbell Flyes", "instrucciones": "Aperturas con mancuerna, en banco plano o inclinación ligera.", "img": null },
+    "barbell_curls_ubb": { "nombre": "Barbell Curls", "instrucciones": "Curl de bíceps con barra Z, de pie.", "img": null },
+    "skull_crushers": { "nombre": "Skull Crushers", "instrucciones": "Extensión de tríceps acostado (press francés) con barra Z o mancuernas, en banco plano o declinado.", "img": null }
+  },
+  "items": [
+    { "id": "pull_ups_ubb", "sets": [
+      { "label": "Serie 1 · 6-8 reps · desc 2-3 min", "reps": 8 },
+      { "label": "Serie 2 · 6-8 reps · desc 2-3 min", "reps": 8 },
+      { "label": "Serie 3 · 6-8 reps · desc 2-3 min", "reps": 8 }
+    ] },
+    { "id": "barbell_shoulder_press", "sets": [
+      { "label": "Serie 1 · 6-8 reps · desc 2-3 min", "reps": 8 },
+      { "label": "Serie 2 · 6-8 reps · desc 2-3 min", "reps": 8 },
+      { "label": "Serie 3 · 6-8 reps · desc 2-3 min", "reps": 8 }
+    ] },
+    { "id": "seated_cable_row_ubb", "sets": [
+      { "label": "Serie 1 · 8-10 reps · desc 1-2 min", "reps": 10 },
+      { "label": "Serie 2 · 8-10 reps · desc 1-2 min", "reps": 10 },
+      { "label": "Serie 3 · 8-10 reps · desc 1-2 min", "reps": 10 }
+    ] },
+    { "id": "dumbbell_bench_press_ubb", "sets": [
+      { "label": "Serie 1 · 8-10 reps · desc 1-2 min", "reps": 10 },
+      { "label": "Serie 2 · 8-10 reps · desc 1-2 min", "reps": 10 },
+      { "label": "Serie 3 · 8-10 reps · desc 1-2 min", "reps": 10 }
+    ] },
+    { "id": "dumbbell_flyes_ubb", "sets": [
+      { "label": "Serie 1 · 10-15 reps · desc 1 min", "reps": 15 },
+      { "label": "Serie 2 · 10-15 reps · desc 1 min", "reps": 15 }
+    ] },
+    { "id": "barbell_curls_ubb", "sets": [
+      { "label": "Serie 1 · 10-12 reps · desc 1 min", "reps": 12 },
+      { "label": "Serie 2 · 10-12 reps · desc 1 min", "reps": 12 },
+      { "label": "Serie 3 · 10-12 reps · desc 1 min", "reps": 12 }
+    ] },
+    { "id": "skull_crushers", "sets": [
+      { "label": "Serie 1 · 12-15 reps · desc 1 min", "reps": 15 },
+      { "label": "Serie 2 · 12-15 reps · desc 1 min", "reps": 15 }
+    ] }
+  ]
+}

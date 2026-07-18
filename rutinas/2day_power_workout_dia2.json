@@ -1,0 +1,49 @@
+{
+  "id": "2day_power_workout_dia2",
+  "nombre": "(Día 2) 2 Day Power Workout",
+  "descripcion": "Día 2 de la rutina 2 Day Power Workout: espalda, tríceps y pierna.",
+  "customExercises": {
+    "hyperextensions_2dp": { "nombre": "Hyperextensions", "instrucciones": "", "img": null },
+    "lat_pulldown_behind_neck": { "nombre": "Lat Pulldown Behind Neck", "instrucciones": "", "img": null },
+    "seated_cable_rows_2dp": { "nombre": "Seated Cable Rows", "instrucciones": "", "img": null },
+    "triceps_pushdown_2dp": { "nombre": "Triceps Pushdown", "instrucciones": "", "img": null },
+    "reverse_one_arm_cable_triceps_extension": { "nombre": "Reverse One Arm Cable Triceps Extension", "instrucciones": "", "img": null },
+    "leg_extensions_2dp": { "nombre": "Leg Extensions", "instrucciones": "", "img": null },
+    "seated_leg_curl_2dp": { "nombre": "Seated Leg Curl", "instrucciones": "", "img": null },
+    "seated_calf_raise_2dp": { "nombre": "Seated Calf Raise", "instrucciones": "", "img": null }
+  },
+  "items": [
+    { "id": "hyperextensions_2dp", "sets": [
+      { "label": "Serie 1 · 15 reps", "reps": 15 }, { "label": "Serie 2 · 15 reps", "reps": 15 },
+      { "label": "Serie 3 · 15 reps", "reps": 15 }, { "label": "Serie 4 · 15 reps", "reps": 15 }
+    ] },
+    { "id": "lat_pulldown_behind_neck", "sets": [
+      { "label": "Serie 1 · 15 reps", "reps": 15 }, { "label": "Serie 2 · 15 reps", "reps": 15 },
+      { "label": "Serie 3 · 15 reps", "reps": 15 }, { "label": "Serie 4 · 15 reps", "reps": 15 }
+    ] },
+    { "id": "seated_cable_rows_2dp", "sets": [
+      { "label": "Serie 1 · 15 reps", "reps": 15 }, { "label": "Serie 2 · 15 reps", "reps": 15 },
+      { "label": "Serie 3 · 15 reps", "reps": 15 }, { "label": "Serie 4 · 15 reps", "reps": 15 }
+    ] },
+    { "id": "triceps_pushdown_2dp", "sets": [
+      { "label": "Serie 1 · 15 reps", "reps": 15 }, { "label": "Serie 2 · 15 reps", "reps": 15 },
+      { "label": "Serie 3 · 15 reps", "reps": 15 }, { "label": "Serie 4 · 15 reps", "reps": 15 }
+    ] },
+    { "id": "reverse_one_arm_cable_triceps_extension", "sets": [
+      { "label": "Serie 1 · 15 reps", "reps": 15 }, { "label": "Serie 2 · 15 reps", "reps": 15 },
+      { "label": "Serie 3 · 15 reps", "reps": 15 }, { "label": "Serie 4 · 15 reps", "reps": 15 }
+    ] },
+    { "id": "leg_extensions_2dp", "sets": [
+      { "label": "Serie 1 · 15 reps", "reps": 15 }, { "label": "Serie 2 · 15 reps", "reps": 15 },
+      { "label": "Serie 3 · 15 reps", "reps": 15 }, { "label": "Serie 4 · 15 reps", "reps": 15 }
+    ] },
+    { "id": "seated_leg_curl_2dp", "sets": [
+      { "label": "Serie 1 · 15 reps", "reps": 15 }, { "label": "Serie 2 · 15 reps", "reps": 15 },
+      { "label": "Serie 3 · 15 reps", "reps": 15 }, { "label": "Serie 4 · 15 reps", "reps": 15 }
+    ] },
+    { "id": "seated_calf_raise_2dp", "sets": [
+      { "label": "Serie 1 · 15 reps", "reps": 15 }, { "label": "Serie 2 · 15 reps", "reps": 15 },
+      { "label": "Serie 3 · 15 reps", "reps": 15 }, { "label": "Serie 4 · 15 reps", "reps": 15 }
+    ] }
+  ]
+}

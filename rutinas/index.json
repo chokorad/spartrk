@@ -1,5 +1,18 @@
 {
   "rutinas": [
-    "hombro_dia_libre.json"
+    "hombro_dia_libre.json",
+    "strong_legs_routine.json",
+    "2day_power_workout_dia1.json",
+    "2day_power_workout_dia2.json",
+    "7_minutes_workout.json",
+    "upper_body_a.json",
+    "upper_body_b.json",
+    "lower_body_a.json",
+    "lower_body_b.json",
+    "six_pack_routine.json",
+    "power_arms_dia1_biceps.json",
+    "power_arms_dia2_triceps.json",
+    "muscle_chest_routine.json",
+    "wide_back_routine.json"
   ]
 }

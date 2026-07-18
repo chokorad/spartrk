@@ -1,0 +1,21 @@
+{
+  "id": "wide_back_routine",
+  "nombre": "Wide Back Routine",
+  "descripcion": "Rutina de espalda.",
+  "customExercises": {
+    "lat_pulldown_back": { "nombre": "Lat Pulldown", "instrucciones": "", "img": null },
+    "seated_cable_rows_back": { "nombre": "Seated Cable Rows", "instrucciones": "", "img": null },
+    "rear_deltoid_row": { "nombre": "Rear Deltoid Row", "instrucciones": "", "img": null },
+    "hyperextensions_back": { "nombre": "Hyperextensions", "instrucciones": "", "img": null },
+    "dead_lifts": { "nombre": "Dead Lifts", "instrucciones": "", "img": null },
+    "reverse_grip_bent_over_rows": { "nombre": "Reverse Grip Bent-Over Rows", "instrucciones": "", "img": null }
+  },
+  "items": [
+    { "id": "lat_pulldown_back", "sets": [ { "label": "Serie 1 · 10 reps", "reps": 10 }, { "label": "Serie 2 · 10 reps", "reps": 10 }, { "label": "Serie 3 · 10 reps", "reps": 10 } ] },
+    { "id": "seated_cable_rows_back", "sets": [ { "label": "Serie 1 · 10 reps", "reps": 10 }, { "label": "Serie 2 · 10 reps", "reps": 10 }, { "label": "Serie 3 · 10 reps", "reps": 10 } ] },
+    { "id": "rear_deltoid_row", "sets": [ { "label": "Serie 1 · 10 reps", "reps": 10 }, { "label": "Serie 2 · 10 reps", "reps": 10 }, { "label": "Serie 3 · 10 reps", "reps": 10 } ] },
+    { "id": "hyperextensions_back", "sets": [ { "label": "Serie 1 · 10 reps", "reps": 10 }, { "label": "Serie 2 · 10 reps", "reps": 10 }, { "label": "Serie 3 · 10 reps", "reps": 10 } ] },
+    { "id": "dead_lifts", "sets": [ { "label": "Serie 1 · 10 reps", "reps": 10 }, { "label": "Serie 2 · 10 reps", "reps": 10 }, { "label": "Serie 3 · 10 reps", "reps": 10 } ] },
+    { "id": "reverse_grip_bent_over_rows", "sets": [ { "label": "Serie 1 · 10 reps", "reps": 10 }, { "label": "Serie 2 · 10 reps", "reps": 10 }, { "label": "Serie 3 · 10 reps", "reps": 10 } ] }
+  ]
+}

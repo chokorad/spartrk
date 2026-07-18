@@ -1,0 +1,21 @@
+{
+  "id": "muscle_chest_routine",
+  "nombre": "Muscle Chest Routine",
+  "descripcion": "Rutina de pecho.",
+  "customExercises": {
+    "push_ups_chest": { "nombre": "Push Ups", "instrucciones": "", "img": null },
+    "bench_press_chest": { "nombre": "Bench Press", "instrucciones": "", "img": null },
+    "dumbbell_incline_bench_press": { "nombre": "Dumbbell Incline Bench Press", "instrucciones": "", "img": null },
+    "decline_chest_press": { "nombre": "Decline Chest Press", "instrucciones": "", "img": null },
+    "dumbbell_flyes_chest": { "nombre": "Dumbbell Flyes", "instrucciones": "", "img": null },
+    "dumbbell_pullover": { "nombre": "Dumbbell Pullover", "instrucciones": "", "img": null }
+  },
+  "items": [
+    { "id": "push_ups_chest", "sets": [ { "label": "Serie 1 · 15 reps", "reps": 15 }, { "label": "Serie 2 · 15 reps", "reps": 15 } ] },
+    { "id": "bench_press_chest", "sets": [ { "label": "Serie 1 · 10 reps", "reps": 10 }, { "label": "Serie 2 · 10 reps", "reps": 10 }, { "label": "Serie 3 · 10 reps", "reps": 10 } ] },
+    { "id": "dumbbell_incline_bench_press", "sets": [ { "label": "Serie 1 · 10 reps", "reps": 10 }, { "label": "Serie 2 · 10 reps", "reps": 10 }, { "label": "Serie 3 · 10 reps", "reps": 10 } ] },
+    { "id": "decline_chest_press", "sets": [ { "label": "Serie 1 · 10 reps", "reps": 10 }, { "label": "Serie 2 · 10 reps", "reps": 10 }, { "label": "Serie 3 · 10 reps", "reps": 10 } ] },
+    { "id": "dumbbell_flyes_chest", "sets": [ { "label": "Serie 1 · 10 reps", "reps": 10 }, { "label": "Serie 2 · 10 reps", "reps": 10 }, { "label": "Serie 3 · 10 reps", "reps": 10 } ] },
+    { "id": "dumbbell_pullover", "sets": [ { "label": "Serie 1 · 10 reps", "reps": 10 }, { "label": "Serie 2 · 10 reps", "reps": 10 }, { "label": "Serie 3 · 10 reps", "reps": 10 } ] }
+  ]
+}

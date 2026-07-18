@@ -1,0 +1,33 @@
+{
+  "id": "strong_legs_routine",
+  "nombre": "Strong Legs Routine",
+  "descripcion": "Rutina de pierna: femoral, cuádriceps, pantorrilla y abductor.",
+  "customExercises": {
+    "lying_leg_curl": { "nombre": "Lying Leg Curl", "instrucciones": "", "img": null },
+    "lying_machine_squat": { "nombre": "Lying Machine Squat", "instrucciones": "", "img": null },
+    "seated_calf_raise_slr": { "nombre": "Seated Calf Raise", "instrucciones": "", "img": null },
+    "thigh_abductor": { "nombre": "Thigh Abductor", "instrucciones": "", "img": null }
+  },
+  "items": [
+    { "id": "lying_leg_curl", "sets": [
+      { "label": "Serie 1 · 10 reps", "reps": 10 },
+      { "label": "Serie 2 · 10 reps", "reps": 10 },
+      { "label": "Serie 3 · 10 reps", "reps": 10 }
+    ] },
+    { "id": "lying_machine_squat", "sets": [
+      { "label": "Serie 1 · 10 reps", "reps": 10 },
+      { "label": "Serie 2 · 10 reps", "reps": 10 },
+      { "label": "Serie 3 · 10 reps", "reps": 10 }
+    ] },
+    { "id": "seated_calf_raise_slr", "sets": [
+      { "label": "Serie 1 · 10 reps", "reps": 10 },
+      { "label": "Serie 2 · 10 reps", "reps": 10 },
+      { "label": "Serie 3 · 10 reps", "reps": 10 }
+    ] },
+    { "id": "thigh_abductor", "sets": [
+      { "label": "Serie 1 · 10 reps", "reps": 10 },
+      { "label": "Serie 2 · 10 reps", "reps": 10 },
+      { "label": "Serie 3 · 10 reps", "reps": 10 }
+    ] }
+  ]
+}

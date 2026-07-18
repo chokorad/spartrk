@@ -30,7 +30,12 @@ function getMonday(d) {
   monday.setHours(0, 0, 0, 0);
   return monday;
 }
-function isoDate(d) { return d.toISOString().slice(0, 10); }
+// fecha en formato YYYY-MM-DD usando la zona horaria LOCAL del dispositivo.
+// (antes usaba toISOString, que es UTC y va horas adelante de México: las sesiones
+// guardadas en la tarde/noche aparecían en el calendario como del día siguiente).
+function isoDate(d) {
+  return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+}
 function fmtDate(d) { return d.toLocaleDateString("es-MX", { day: "numeric", month: "short" }); }
 // ejercicios extra que vienen dentro de rutinas importadas del catálogo (no están
 // en el catálogo base EXERCISES). Se reconstruye cada vez que se cargan las rutinas.
@@ -214,6 +219,30 @@ async function saveProgressionMode(mode) {
   progressionMode = mode;
   await setDoc(doc(db, "users", currentUser.uid, "settings", "progression"), { mode });
 }
+
+// --- saltos de peso disponibles en el gym del usuario (para redondear sugerencias) ---
+const DEFAULT_INCREMENTS = { kg: 2.5, lb: 5, Barras: 1 };
+let weightIncrements = { ...DEFAULT_INCREMENTS };
+
+async function loadWeightIncrements() {
+  const snap = await getDoc(doc(db, "users", currentUser.uid, "settings", "increments"));
+  weightIncrements = { ...DEFAULT_INCREMENTS, ...(snap.exists() ? snap.data() : {}) };
+  return weightIncrements;
+}
+
+async function saveWeightIncrements(inc) {
+  weightIncrements = { ...DEFAULT_INCREMENTS, ...inc };
+  await setDoc(doc(db, "users", currentUser.uid, "settings", "increments"), weightIncrements);
+}
+
+// redondea un peso al múltiplo más cercano del salto disponible para esa unidad
+// (nunca debajo de un salto). Ej: 15.75 lb con salto de 5 -> 15 lb.
+function roundToIncrement(value, unit) {
+  const inc = parseFloat(weightIncrements[unit]) || 1;
+  const rounded = Math.round(value / inc) * inc;
+  return Math.max(inc, Math.round(rounded * 100) / 100);
+}
+function oneDec(x) { return Math.round(x * 10) / 10; }
 
 // resuelve el plan "en efecto" a partir del weekPlan guardado (si está activo) o
 // del clásico DAYS (si no hay configuración o está desactivada).
@@ -459,7 +488,7 @@ function buildCalendarSection() {
 // --- pantalla de configuración de rutinas (fase C) ---
 async function renderConfig() {
   clearApp();
-  const [weekPlan, routinesMap] = await Promise.all([loadWeekPlan(), loadRoutines(), loadProgressionMode()]);
+  const [weekPlan, routinesMap] = await Promise.all([loadWeekPlan(), loadRoutines(), loadProgressionMode(), loadWeightIncrements()]);
   currentRoutinesMap = routinesMap;
 
   const top = document.createElement("div");
@@ -509,6 +538,45 @@ async function renderConfig() {
     await saveProgressionMode(progSelect.value);
     progSaved.style.display = "block";
     setTimeout(() => { progSaved.style.display = "none"; }, 2000);
+  });
+
+  // --- saltos de peso del gym (para redondear las sugerencias a discos reales) ---
+  const fieldLabelInc = document.createElement("div");
+  fieldLabelInc.className = "field-label";
+  fieldLabelInc.textContent = "Saltos de peso en tu gym";
+  app.appendChild(fieldLabelInc);
+
+  const incNote = document.createElement("p");
+  incNote.style.cssText = "font-size:11px; color:#6a6a6a; margin-bottom:6px; line-height:1.5;";
+  incNote.textContent = "De cuánto en cuánto van los pesos disponibles. Las sugerencias se redondean a estos saltos.";
+  app.appendChild(incNote);
+
+  const incRow = document.createElement("div");
+  incRow.className = "set-input-row";
+  incRow.innerHTML = ["kg", "lb", "Barras"].map((u) => `
+    <div style="flex:1;">
+      <div style="font-size:10px; color:#8a8a8a; margin-bottom:3px;">${u}</div>
+      <input type="number" step="any" min="0.5" data-inc="${u}" value="${weightIncrements[u]}" style="width:100%;">
+    </div>
+  `).join("");
+  app.appendChild(incRow);
+
+  const incSaved = document.createElement("p");
+  incSaved.style.cssText = "font-size:10px; color:#8fd18f; margin:4px 0 14px; display:none;";
+  incSaved.textContent = "Guardado ✓";
+  app.appendChild(incSaved);
+
+  incRow.querySelectorAll("input").forEach((el) => {
+    el.addEventListener("change", async () => {
+      const inc = {};
+      incRow.querySelectorAll("input").forEach((i) => {
+        const v = parseFloat(i.value);
+        if (v > 0) inc[i.dataset.inc] = v;
+      });
+      await saveWeightIncrements(inc);
+      incSaved.style.display = "block";
+      setTimeout(() => { incSaved.style.display = "none"; }, 2000);
+    });
   });
 
   const fieldLabel1 = document.createElement("div");
@@ -589,7 +657,7 @@ async function renderConfig() {
   const currentDias = (weekPlan && weekPlan.enabled && weekPlan.diasPerWeek) || 4;
   const diasSelect = document.createElement("select");
   diasSelect.style.cssText = "width:100%; margin-bottom:14px;";
-  [3, 4, 5, 6].forEach((n) => {
+  [3, 4, 5, 6, 7].forEach((n) => {
     const opt = document.createElement("option");
     opt.value = n; opt.textContent = n;
     if (n === currentDias) opt.selected = true;
@@ -822,6 +890,7 @@ function buildExerciseBlock(exerciseId, sets, dayLabel, opts = {}) {
   const isTUT = progressionMode === "tut";
   const idx100 = sets.findIndex((s) => s.pct === 100);
   let currentMax = null;
+  let currentMaxExact = null;
   let progressMsg = null;
   if (idx100 !== -1 && lastData && lastData.sets && lastData.sets[idx100] && lastData.sets[idx100].peso) {
     const refSet = lastData.sets[idx100];
@@ -861,7 +930,18 @@ function buildExerciseBlock(exerciseId, sets, dayLabel, opts = {}) {
         progressMsg = "Anterior: " + lentas + " lentas + " + normales + " normales. Las normales no cuentan para subir: meta " + REPS_META_LENTAS + " lentas limpias con este peso.";
       }
     }
-    currentMax = Math.floor(base * factor);
+    // redondear la sugerencia a los saltos de peso que sí existen en el gym
+    const incUnit = parseFloat(weightIncrements[initialUnit]) || 1;
+    currentMaxExact = oneDec(base * factor);
+    currentMax = roundToIncrement(base * factor, initialUnit);
+    if (factor > 1 && currentMax <= base) {
+      // ganó la subida, pero el 5% no alcanza el siguiente disco disponible
+      currentMax = base;
+      progressMsg = "¡Ganaste la subida! Pero " + currentMaxExact + " " + initialUnit + " no existe con tus discos: quédate en " + oneDec(base) + " y saca más reps, o brinca a " + oneDec(base + incUnit) + " si te sientes con fuerza.";
+    } else if (factor < 1 && currentMax >= base) {
+      // tocaba bajar, pero el redondeo lo regresó al mismo peso: bajar un disco completo
+      currentMax = Math.max(incUnit, oneDec(base - incUnit));
+    }
   }
 
   if (progressMsg) {
@@ -877,7 +957,11 @@ function buildExerciseBlock(exerciseId, sets, dayLabel, opts = {}) {
   function updateHint() {
     if (currentMax != null) {
       suggestHint.style.display = "block";
-      suggestHint.textContent = `Pesos sugeridos según tu máximo estimado: ${currentMax} ${unitSelect.value}`;
+      let txt = `Pesos sugeridos según tu máximo estimado: ${currentMax} ${unitSelect.value}`;
+      if (currentMaxExact != null && Math.abs(currentMaxExact - currentMax) >= 0.05) {
+        txt += ` (objetivo exacto: ${currentMaxExact})`;
+      }
+      suggestHint.textContent = txt;
     } else {
       suggestHint.style.display = "none";
     }
@@ -910,7 +994,7 @@ function buildExerciseBlock(exerciseId, sets, dayLabel, opts = {}) {
       setsWrap.appendChild(hint);
     }
 
-    const suggested = (!draftSet && s.pct != null && currentMax != null) ? Math.floor(currentMax * (s.pct / 100)) : null;
+    const suggested = (!draftSet && s.pct != null && currentMax != null) ? roundToIncrement(currentMax * (s.pct / 100), unitSelect.value) : null;
     const pesoVal = draftSet && draftSet.peso ? draftSet.peso : (suggested != null ? suggested : (prevSet && prevSet.peso ? prevSet.peso : ""));
     const lentasVal = draftSet && draftSet.repsLentas ? draftSet.repsLentas : (prevSet && prevSet.repsLentas ? prevSet.repsLentas : "");
     const normalesVal = draftSet && draftSet.repsNormales ? draftSet.repsNormales : (prevSet && prevSet.repsNormales ? prevSet.repsNormales : "");
@@ -997,12 +1081,13 @@ function buildExerciseBlock(exerciseId, sets, dayLabel, opts = {}) {
       const val = parseFloat(pesoInput.value);
       if (!val) return;
       currentMax = Math.floor(val / (s.pct / 100));
+      currentMaxExact = null;
       updateHint();
       inputs.forEach((otherRow, j) => {
         if (!otherRow || j === i || touched[j]) return;
         const otherPct = sets[j].pct;
         if (otherPct == null) return;
-        otherRow.querySelector('[data-field="peso"]').value = Math.floor(currentMax * (otherPct / 100));
+        otherRow.querySelector('[data-field="peso"]').value = roundToIncrement(currentMax * (otherPct / 100), unitSelect.value);
       });
     });
 
@@ -1120,11 +1205,35 @@ function fmtElapsed(ms) {
   return `${m}:${s}`;
 }
 
+// red de seguridad: si algo truena al abrir un día (por ejemplo un borrador
+// corrupto), en vez de dejar la pantalla en negro se descarta el borrador y se
+// muestra una tarjeta con opciones de reintentar o volver al inicio.
+async function renderDay(dayId, extraOverride) {
+  try {
+    await renderDayInner(dayId, extraOverride);
+  } catch (err) {
+    console.error("SparTrk - error al abrir el día:", err);
+    try { localStorage.removeItem(`spartrk_draft_${currentUser.uid}_${dayId}`); } catch (e) {}
+    if (timerInterval) clearInterval(timerInterval);
+    clearApp();
+    const card = document.createElement("div");
+    card.className = "card";
+    card.innerHTML = `
+      <p style="font-size:13px; color:#f09595; margin-bottom:10px;">Algo falló al abrir este día. Se descartó la sesión sin guardar para destrabarlo.</p>
+      <button class="primary-btn" id="retry-day" type="button">Intentar de nuevo</button>
+      <button class="secondary-btn" id="go-home" type="button" style="margin-top:8px;">Volver al inicio</button>
+    `;
+    app.appendChild(card);
+    card.querySelector("#retry-day").onclick = () => renderDay(dayId, extraOverride);
+    card.querySelector("#go-home").onclick = renderHome;
+  }
+}
+
 // dayId normal: "dia1".."diaN" (resuelto contra currentEffectivePlan) o "emergencia".
 // extraOverride (opcional): { exList, label } para un "día extra" ad-hoc con una rutina
 // guardada; en ese caso dayId es una clave única tipo "extra_<routineId>_<fecha>" que
 // no colisiona con ningún slot semanal.
-async function renderDay(dayId, extraOverride) {
+async function renderDayInner(dayId, extraOverride) {
   clearApp();
   sessionStartTime = null;
   if (timerInterval) clearInterval(timerInterval);
@@ -1176,8 +1285,10 @@ async function renderDay(dayId, extraOverride) {
     if (sessionStartTime) return;
     sessionStartTime = draftData && draftData.startedAt ? draftData.startedAt : Date.now();
     pausedAccum = (draftData && draftData.pausedAccum) || 0;
-    isPaused = false;
-    pauseStartedAt = null;
+    // si el borrador se guardó con el cronómetro en pausa, se restaura pausado
+    // (el tiempo fuera de la app no cuenta como entrenamiento).
+    isPaused = !!(draftData && draftData.isPaused && draftData.pauseStartedAt);
+    pauseStartedAt = isPaused ? draftData.pauseStartedAt : null;
     renderTimerUI();
     timerInterval = setInterval(() => {
       if (!isPaused) {
@@ -1203,7 +1314,6 @@ async function renderDay(dayId, extraOverride) {
   }
 
   renderTimerUI();
-  if (draftData && draftData.startedAt) startTimer();
 
   if (draftData) {
     const banner = document.createElement("div");
@@ -1227,7 +1337,7 @@ async function renderDay(dayId, extraOverride) {
   }
 
   const allIds = exList.map((e) => e.id).concat(isEmergency ? [] : [DAILY_TASK.storageId]);
-  const [lastDataMap] = await Promise.all([loadLastData(allIds), loadProgressionMode()]);
+  const [lastDataMap] = await Promise.all([loadLastData(allIds), loadProgressionMode(), loadWeightIncrements()]);
 
   // usa el promedio real de tus últimas sesiones para ese ejercicio si ya existe,
   // si no, cae al estimado genérico por número de series.
@@ -1236,7 +1346,10 @@ async function renderDay(dayId, extraOverride) {
     return personalized || estimateMinutes(e.sets);
   }
 
-  let remainingMinutes = exList.reduce((sum, e) => sum + minutesFor(e), 0) + (isEmergency ? 0 : DAILY_TASK_TIME_MIN);
+  // la tarea diaria (bombeada) también cuenta para el estimado, usando su duración
+  // real promedio si ya hay historial (antes se asumía 1 min fijo).
+  const dailyTaskMin = isEmergency ? 0 : ((lastDataMap[DAILY_TASK.storageId] && lastDataMap[DAILY_TASK.storageId].avgDuracionMin) || DAILY_TASK_TIME_MIN);
+  let remainingMinutes = exList.reduce((sum, e) => sum + minutesFor(e), 0) + dailyTaskMin;
   const etaExEl = document.createElement("span");
   etaExEl.className = "min-num";
   function updateEta() {
@@ -1257,6 +1370,8 @@ async function renderDay(dayId, extraOverride) {
       },
       startedAt: sessionStartTime,
       pausedAccum: pausedAccum,
+      isPaused: isPaused,
+      pauseStartedAt: pauseStartedAt,
       savedAt: Date.now()
     };
     try { localStorage.setItem(draftKey, JSON.stringify(data)); } catch (e) {}
@@ -1314,7 +1429,7 @@ async function renderDay(dayId, extraOverride) {
       storageId: DAILY_TASK.storageId,
       nameSuffix: " (tarea diaria)",
       dotEl: dailyDotEl,
-      totalMinutesOverride: DAILY_TASK_TIME_MIN,
+      totalMinutesOverride: dailyTaskMin,
       onSetProgress: (min) => { remainingMinutes -= min; updateEta(); persistDraft(); },
       onExerciseDone: () => { persistDraft(); },
       onFocus: () => { startTimer(); setCurrentDot(dailyDotEl); }
@@ -1379,6 +1494,10 @@ async function renderDay(dayId, extraOverride) {
       btn.disabled = true;
     };
   }
+
+  // restaurar el cronómetro del borrador hasta aquí, cuando `blocks` y todo lo que
+  // usa persistDraft ya existe (restaurarlo al inicio tronaba la pantalla en negro).
+  if (draftData && draftData.startedAt) startTimer();
 
   updateEta();
   const etaWrap = document.createElement("div");

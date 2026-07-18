@@ -1,0 +1,40 @@
+{
+  "id": "lower_body_a",
+  "nombre": "Lower Body A",
+  "descripcion": "Tren inferior A (The Muscle Building Workout Routine, AWorkoutRoutine.com). Parte del split upper/lower a 4 días: cada grupo se entrena 2x/semana.",
+  "customExercises": {
+    "romanian_deadlifts": { "nombre": "Romanian Deadlifts", "instrucciones": "Peso muerto rumano, agarre prono doble. Si el agarre falla con más peso, usa straps. Alternativa: peso muerto piernas rígidas (SLDL).", "img": null },
+    "leg_press_lba": { "nombre": "Leg Press", "instrucciones": "Prensa a 45°, ambas piernas o una a la vez.", "img": null },
+    "seated_leg_curls": { "nombre": "Seated Leg Curls", "instrucciones": "Curl femoral, cualquier variante disponible (sentado, de pie o acostado).", "img": null },
+    "standing_calf_raises": { "nombre": "Standing Calf Raises", "instrucciones": "Elevación de talón de pie. Si no hay máquina, usa la prensa a 45° para elevación de talón.", "img": null },
+    "abs_lba": { "nombre": "Abs", "instrucciones": "Series libres de abdomen (crunch con peso, elevación de piernas colgado, plancha, etc.), sin pasar de ~10 min en total.", "img": null }
+  },
+  "items": [
+    { "id": "romanian_deadlifts", "sets": [
+      { "label": "Serie 1 · 6-8 reps · desc 2-3 min", "reps": 8 },
+      { "label": "Serie 2 · 6-8 reps · desc 2-3 min", "reps": 8 },
+      { "label": "Serie 3 · 6-8 reps · desc 2-3 min", "reps": 8 }
+    ] },
+    { "id": "leg_press_lba", "sets": [
+      { "label": "Serie 1 · 10-12 reps · desc 1-2 min", "reps": 12 },
+      { "label": "Serie 2 · 10-12 reps · desc 1-2 min", "reps": 12 },
+      { "label": "Serie 3 · 10-12 reps · desc 1-2 min", "reps": 12 }
+    ] },
+    { "id": "seated_leg_curls", "sets": [
+      { "label": "Serie 1 · 8-10 reps · desc 1-2 min", "reps": 10 },
+      { "label": "Serie 2 · 8-10 reps · desc 1-2 min", "reps": 10 },
+      { "label": "Serie 3 · 8-10 reps · desc 1-2 min", "reps": 10 }
+    ] },
+    { "id": "standing_calf_raises", "sets": [
+      { "label": "Serie 1 · 6-8 reps · desc 1-2 min", "reps": 8 },
+      { "label": "Serie 2 · 6-8 reps · desc 1-2 min", "reps": 8 },
+      { "label": "Serie 3 · 6-8 reps · desc 1-2 min", "reps": 8 },
+      { "label": "Serie 4 · 6-8 reps · desc 1-2 min", "reps": 8 }
+    ] },
+    { "id": "abs_lba", "sets": [
+      { "label": "Serie 1 · 8-15 reps · desc 1 min", "reps": 15 },
+      { "label": "Serie 2 · 8-15 reps · desc 1 min", "reps": 15 },
+      { "label": "Serie 3 · 8-15 reps · desc 1 min", "reps": 15 }
+    ] }
+  ]
+}
