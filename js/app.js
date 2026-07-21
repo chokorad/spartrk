@@ -64,9 +64,12 @@ async function loadWeekProgress() {
   weekProgress = snap.exists() ? snap.data() : {};
 }
 
-async function markComplete(dayId) {
+// extraFields (opcional): campos adicionales a fusionar en el mismo doc de la semana,
+// como el mapa de nombres de los días extra (ver "cascada" de +Día extra en renderHome).
+async function markComplete(dayId, extraFields) {
   const ref = doc(db, "users", currentUser.uid, "weeks", weekStartISO);
   weekProgress[dayId] = true;
+  if (extraFields) Object.assign(weekProgress, extraFields);
   await setDoc(ref, weekProgress, { merge: true });
 }
 
@@ -358,11 +361,33 @@ async function renderHome() {
   emCard.onclick = () => renderDay("emergencia");
   app.appendChild(emCard);
 
-  const extraCard = document.createElement("div");
-  extraCard.className = "card extra-day-card";
-  extraCard.innerHTML = `<p>+ Día extra</p><div class="sub">¿Le metes un día más? Elige una rutina guardada.</div>`;
-  extraCard.onclick = () => openExtraDaySheet(routinesMap);
-  app.appendChild(extraCard);
+  // Cascada de días extra: no hay un solo botón fijo. Cada "extra1", "extra2"... que ya
+  // se completó esta semana (guardado en weeks/{weekStartISO}) se pinta como tarjeta
+  // hecha, y solo se ofrece el SIGUIENTE slot para tomar — nunca los de más adelante.
+  // Tope: entre el plan base y los extras no se pasa de 7 días entrenados en la semana.
+  const MAX_DAYS_PER_WEEK = 7;
+  const basePlanCount = currentEffectivePlan.length;
+  const extraNames = weekProgress.extraNames || {};
+  let extraSlot = 1;
+  while (weekProgress["extra" + extraSlot]) {
+    const doneCard = document.createElement("div");
+    doneCard.className = "card extra-day-card done";
+    doneCard.innerHTML = `<p>Día extra ${extraSlot} &#10003;</p><div class="sub">${extraNames["extra" + extraSlot] || "Completado"}</div>`;
+    app.appendChild(doneCard);
+    extraSlot++;
+  }
+  if (basePlanCount + (extraSlot - 1) < MAX_DAYS_PER_WEEK) {
+    const extraCard = document.createElement("div");
+    extraCard.className = "card extra-day-card";
+    extraCard.innerHTML = `<p>+ Día extra${extraSlot > 1 ? " " + extraSlot : ""}</p><div class="sub">¿Le metes un día más? Elige una rutina guardada.</div>`;
+    extraCard.onclick = () => openExtraDaySheet(routinesMap, extraSlot);
+    app.appendChild(extraCard);
+  } else {
+    const capCard = document.createElement("div");
+    capCard.className = "card extra-day-card done";
+    capCard.innerHTML = `<p>Semana completa &#127881;</p><div class="sub">Ya entrenaste los 7 días posibles esta semana.</div>`;
+    app.appendChild(capCard);
+  }
 
   app.appendChild(buildCalendarSection());
 
@@ -371,7 +396,7 @@ async function renderHome() {
 
 // hoja para elegir una rutina guardada y arrancar un "día extra" suelto, sin que
 // afecte tu plan semanal ni marque ningún Día 1-N como completado.
-function openExtraDaySheet(routinesMap) {
+function openExtraDaySheet(routinesMap, slotNumber) {
   const ids = Object.keys(routinesMap);
   const overlay = document.createElement("div");
   overlay.className = "sheet-overlay";
@@ -399,7 +424,7 @@ function openExtraDaySheet(routinesMap) {
       overlay.remove();
       const exList = routineToExercises(r);
       const extraDayId = "extra_" + id + "_" + isoDate(new Date());
-      renderDay(extraDayId, { exList, label: "Día extra - " + r.nombre });
+      renderDay(extraDayId, { exList, label: "Día extra - " + r.nombre, slotKey: "extra" + slotNumber, slotLabel: r.nombre });
     };
   });
 }
@@ -881,11 +906,16 @@ function buildExerciseBlock(exerciseId, sets, dayLabel, opts = {}) {
   const unitSelect = unitRow.querySelector('[data-field="unidad"]');
 
   // Regla de progresión según el método elegido en Configuración:
-  // - "tut" (tiempo bajo tensión): solo cuentan las reps lentas; sube 5% con 6 lentas limpias.
+  // - "tut" (tiempo bajo tensión): sube 5% con 6 reps totales en la serie efectiva,
+  //   siempre que al menos la mitad hayan sido lentas (con tempo controlado) — "mitad y
+  //   mitad": 3 lentas + 3 rápidas también cuenta, no hace falta que las 6 sean lentas.
+  //   Decisión de Mario del 20 jul 2026, ajustada el mismo día (primero se probó con
+  //   mínimo 5 lentas, luego se relajó a 3 — mitad y mitad).
   // - "total" (reps totales): cuentan todas las reps; sube 5% al llegar a 6.
   // - "sensacion": sube 5% si marcó "Fácil", baja 5% si "No completé".
   // En "tut" y "total" también baja 5% si no completó o sacó menos de 4 reps.
   const REPS_META_LENTAS = 6;
+  const REPS_LENTAS_MIN_PARA_SUBIR = 3; // mínimo de lentas exigidas (mitad y mitad); el resto puede ser normal
   const REPS_MIN_EFECTIVA = 4;
   const isTUT = progressionMode === "tut";
   const idx100 = sets.findIndex((s) => s.pct === 100);
@@ -921,13 +951,13 @@ function buildExerciseBlock(exerciseId, sets, dayLabel, opts = {}) {
       if (refSet.sensacion === "No completé" || (total > 0 && total < REPS_MIN_EFECTIVA)) {
         factor = 0.95;
         progressMsg = "Bajamos ~5% para consolidar. Meta: " + REPS_MIN_EFECTIVA + "-" + REPS_META_LENTAS + " lentas limpias.";
-      } else if (lentas >= REPS_META_LENTAS && normales === 0) {
+      } else if (lentas >= REPS_LENTAS_MIN_PARA_SUBIR && total >= REPS_META_LENTAS) {
         factor = 1.05;
-        progressMsg = "¡Lograste " + lentas + " lentas limpias! Hoy sube el peso: meta " + REPS_MIN_EFECTIVA + "-" + REPS_META_LENTAS + " lentas con el nuevo peso.";
-      } else if (lentas > 0 && normales === 0) {
-        progressMsg = "Anterior: " + lentas + "/" + REPS_META_LENTAS + " lentas — te falta" + (REPS_META_LENTAS - lentas === 1 ? "" : "n") + " " + (REPS_META_LENTAS - lentas) + " para subir de peso. Mismo peso hoy.";
-      } else if (normales > 0) {
-        progressMsg = "Anterior: " + lentas + " lentas + " + normales + " normales. Las normales no cuentan para subir: meta " + REPS_META_LENTAS + " lentas limpias con este peso.";
+        progressMsg = normales > 0
+          ? "¡Lograste " + lentas + " lentas + " + normales + " al filo del fallo! Hoy sube el peso: meta " + REPS_META_LENTAS + " reps (mínimo " + REPS_LENTAS_MIN_PARA_SUBIR + " lentas) con el nuevo peso."
+          : "¡Lograste " + lentas + " lentas limpias! Hoy sube el peso: meta " + REPS_META_LENTAS + " reps con el nuevo peso.";
+      } else if (total > 0) {
+        progressMsg = "Anterior: " + lentas + " lentas + " + normales + " (" + total + "/" + REPS_META_LENTAS + "). Para subir necesitas " + REPS_META_LENTAS + " reps totales con mínimo " + REPS_LENTAS_MIN_PARA_SUBIR + " lentas. Mismo peso hoy.";
       }
     }
     // redondear la sugerencia a los saltos de peso que sí existen en el gym
@@ -994,12 +1024,18 @@ function buildExerciseBlock(exerciseId, sets, dayLabel, opts = {}) {
       setsWrap.appendChild(hint);
     }
 
-    const suggested = (!draftSet && s.pct != null && currentMax != null) ? roundToIncrement(currentMax * (s.pct / 100), unitSelect.value) : null;
-    const pesoVal = draftSet && draftSet.peso ? draftSet.peso : (suggested != null ? suggested : (prevSet && prevSet.peso ? prevSet.peso : ""));
+    // Antes esto se apagaba con solo "!draftSet" (¿ya existe un objeto de borrador para
+    // esta serie?), pero persistDraft() guarda un objeto por serie SIEMPRE (aunque esté
+    // vacía), así que apenas se guardaba un borrador una vez, la sugerencia de peso por
+    // porcentaje dejaba de calcularse para el resto de la sesión. Ahora solo se apaga si
+    // el borrador ya trae un peso capturado de verdad para esa serie.
+    const draftHasPeso = !!(draftSet && draftSet.peso);
+    const suggested = (!draftHasPeso && s.pct != null && currentMax != null) ? roundToIncrement(currentMax * (s.pct / 100), unitSelect.value) : null;
+    const pesoVal = draftHasPeso ? draftSet.peso : (suggested != null ? suggested : (prevSet && prevSet.peso ? prevSet.peso : ""));
     const lentasVal = draftSet && draftSet.repsLentas ? draftSet.repsLentas : (prevSet && prevSet.repsLentas ? prevSet.repsLentas : "");
     const normalesVal = draftSet && draftSet.repsNormales ? draftSet.repsNormales : (prevSet && prevSet.repsNormales ? prevSet.repsNormales : "");
     const sensVal = (draftSet && draftSet.sensacion) || "Normal";
-    const isPrefilled = !draftSet && (suggested != null || (prevSet && prevSet.peso));
+    const isPrefilled = !draftHasPeso && (suggested != null || (prevSet && prevSet.peso));
 
     const inputRow = document.createElement("div");
     inputRow.className = "set-input-row" + (isPrefilled ? " prefilled" : "");
@@ -1027,11 +1063,12 @@ function buildExerciseBlock(exerciseId, sets, dayLabel, opts = {}) {
         const lv = parseInt(inputRow.querySelector('[data-field="repsLentas"]').value) || 0;
         const nv = parseInt(inputRow.querySelector('[data-field="repsNormales"]').value) || 0;
         if (isTUT) {
-          if (lv >= REPS_META_LENTAS && nv === 0) {
-            liveHint.textContent = "✓ " + lv + " lentas limpias — la próxima sesión sube el peso.";
+          const totLive = lv + nv;
+          if (lv >= REPS_LENTAS_MIN_PARA_SUBIR && totLive >= REPS_META_LENTAS) {
+            liveHint.textContent = "✓ " + lv + " lentas" + (nv > 0 ? " + " + nv + " al filo del fallo" : " limpias") + " — la próxima sesión sube el peso.";
             liveHint.style.display = "block";
           } else if (lv > 0 || nv > 0) {
-            liveHint.textContent = lv + "/" + REPS_META_LENTAS + " lentas" + (nv > 0 ? " (+" + nv + " normales, no cuentan para subir)" : "");
+            liveHint.textContent = lv + " lentas" + (nv > 0 ? " + " + nv + " normales" : "") + " (" + totLive + "/" + REPS_META_LENTAS + ", mínimo " + REPS_LENTAS_MIN_PARA_SUBIR + " lentas)";
             liveHint.style.display = "block";
           } else {
             liveHint.style.display = "none";
@@ -1197,6 +1234,10 @@ let timerInterval = null;
 let isPaused = false;
 let pausedAccum = 0;
 let pauseStartedAt = null;
+// listeners de pausa automática al salir de la pantalla del día (ver renderDayInner);
+// se guardan aquí para poder quitarlos al navegar fuera y no duplicarlos entre renders.
+let dayVisibilityHandler = null;
+let dayPagehideHandler = null;
 
 function fmtElapsed(ms) {
   const totalSec = Math.floor(ms / 1000);
@@ -1215,6 +1256,8 @@ async function renderDay(dayId, extraOverride) {
     console.error("SparTrk - error al abrir el día:", err);
     try { localStorage.removeItem(`spartrk_draft_${currentUser.uid}_${dayId}`); } catch (e) {}
     if (timerInterval) clearInterval(timerInterval);
+    if (dayVisibilityHandler) { document.removeEventListener("visibilitychange", dayVisibilityHandler); dayVisibilityHandler = null; }
+    if (dayPagehideHandler) { window.removeEventListener("pagehide", dayPagehideHandler); dayPagehideHandler = null; }
     clearApp();
     const card = document.createElement("div");
     card.className = "card";
@@ -1241,6 +1284,8 @@ async function renderDayInner(dayId, extraOverride) {
   isPaused = false;
   pausedAccum = 0;
   pauseStartedAt = null;
+  if (dayVisibilityHandler) { document.removeEventListener("visibilitychange", dayVisibilityHandler); dayVisibilityHandler = null; }
+  if (dayPagehideHandler) { window.removeEventListener("pagehide", dayPagehideHandler); dayPagehideHandler = null; }
 
   const draftKey = `spartrk_draft_${currentUser.uid}_${dayId}`;
   let draftData = null;
@@ -1256,7 +1301,12 @@ async function renderDayInner(dayId, extraOverride) {
     <div class="timer-wrap" id="timer-wrap"></div>
   `;
   app.appendChild(top);
-  top.querySelector("#back-btn").onclick = renderHome;
+  top.querySelector("#back-btn").onclick = () => {
+    autoPauseOnLeave();
+    if (dayVisibilityHandler) { document.removeEventListener("visibilitychange", dayVisibilityHandler); dayVisibilityHandler = null; }
+    if (dayPagehideHandler) { window.removeEventListener("pagehide", dayPagehideHandler); dayPagehideHandler = null; }
+    renderHome();
+  };
   const timerWrapEl = top.querySelector("#timer-wrap");
 
   // --- timer: doble disparo (botón manual o al tocar el primer campo) + pausa ---
@@ -1276,9 +1326,20 @@ async function renderDayInner(dayId, extraOverride) {
       <div class="timer-running-box">
         <span class="clock${isPaused ? " paused" : ""}" id="timer-clock">${fmtElapsed(getElapsedMs())}</span>
         <button class="pause-btn${isPaused ? " paused" : ""}" id="pause-btn" type="button">${isPaused ? "&#9654;" : "&#10074;&#10074;"}</button>
+        <button class="reset-btn" id="reset-timer-btn" type="button" title="Reiniciar cronómetro">&#8635;</button>
       </div>
     `;
     timerWrapEl.querySelector("#pause-btn").onclick = togglePause;
+    timerWrapEl.querySelector("#reset-timer-btn").onclick = () => {
+      const confirmed = confirm("¿Reiniciar el cronómetro de este entrenamiento? Se perderá el tiempo acumulado (" + fmtElapsed(getElapsedMs()) + ").");
+      if (!confirmed) return;
+      sessionStartTime = Date.now();
+      pausedAccum = 0;
+      isPaused = false;
+      pauseStartedAt = null;
+      renderTimerUI();
+      persistDraft();
+    };
   }
 
   function startTimer() {
@@ -1312,6 +1373,23 @@ async function renderDayInner(dayId, extraOverride) {
     renderTimerUI();
     persistDraft();
   }
+
+  // pausa automática si sales de la pantalla del ejercicio (cambias de app, apagas
+  // pantalla, o le das "volver"): antes el cronómetro seguía corriendo en segundo
+  // plano durante horas/días si no cerrabas la sesión, y arruinaba la duración
+  // guardada (ej. "5684 hrs" por dejar la app abierta desde el viernes).
+  function autoPauseOnLeave() {
+    if (sessionStartTime && !isPaused) {
+      isPaused = true;
+      pauseStartedAt = Date.now();
+      renderTimerUI();
+      persistDraft();
+    }
+  }
+  dayVisibilityHandler = () => { if (document.hidden) autoPauseOnLeave(); };
+  dayPagehideHandler = autoPauseOnLeave;
+  document.addEventListener("visibilitychange", dayVisibilityHandler);
+  window.addEventListener("pagehide", dayPagehideHandler);
 
   renderTimerUI();
 
@@ -1408,7 +1486,7 @@ async function renderDayInner(dayId, extraOverride) {
       totalMinutesOverride: minutesFor(e),
       onSetProgress: (min) => { remainingMinutes -= min; updateEta(); persistDraft(); },
       onExerciseDone: () => { persistDraft(); },
-      onFocus: () => { startTimer(); setCurrentDot(dotEl); }
+      onFocus: () => { startTimer(); if (isPaused) togglePause(); setCurrentDot(dotEl); }
     });
     blocks.push(b);
     app.appendChild(b);
@@ -1432,7 +1510,7 @@ async function renderDayInner(dayId, extraOverride) {
       totalMinutesOverride: dailyTaskMin,
       onSetProgress: (min) => { remainingMinutes -= min; updateEta(); persistDraft(); },
       onExerciseDone: () => { persistDraft(); },
-      onFocus: () => { startTimer(); setCurrentDot(dailyDotEl); }
+      onFocus: () => { startTimer(); if (isPaused) togglePause(); setCurrentDot(dailyDotEl); }
     });
     blocks.push(taskBlock);
     app.appendChild(taskBlock);
@@ -1548,10 +1626,18 @@ async function renderDayInner(dayId, extraOverride) {
           await saveLastData(exercisesData, durations, lastDataMap);
           if (dayId !== "emergencia") await markComplete(dayId);
           if (dayId === "emergencia") await markComplete("emergencia_" + isoDate(new Date()));
+          // además de la marca única del día extra (arriba), se marca el "slot" de la
+          // cascada (extra1, extra2...) para que en Home aparezca el siguiente disponible.
+          if (extraOverride && extraOverride.slotKey) {
+            const mergedNames = Object.assign({}, weekProgress.extraNames || {}, { [extraOverride.slotKey]: extraOverride.slotLabel || label });
+            await markComplete(extraOverride.slotKey, { extraNames: mergedNames });
+          }
         })(),
         timeoutPromise
       ]);
       if (timerInterval) clearInterval(timerInterval);
+      if (dayVisibilityHandler) { document.removeEventListener("visibilitychange", dayVisibilityHandler); dayVisibilityHandler = null; }
+      if (dayPagehideHandler) { window.removeEventListener("pagehide", dayPagehideHandler); dayPagehideHandler = null; }
       try { localStorage.removeItem(draftKey); } catch (e) {}
       renderHome();
     } catch (err) {

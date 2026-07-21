@@ -42,6 +42,8 @@ input:focus, select:focus { outline: 1px solid #d13030; }
 .timer-running-box .clock.paused { color: #d9968a; }
 .pause-btn { background: transparent; border: 0.5px solid #4a1414; color: #d9968a; font-size: 14px; width: 26px; height: 26px; padding: 0; display: flex; align-items: center; justify-content: center; }
 .pause-btn.paused { border-color: #e0a940; color: #e0a940; }
+.reset-btn { background: transparent; border: 0.5px solid #4a1414; color: #d9968a; font-size: 14px; width: 26px; height: 26px; padding: 0; display: flex; align-items: center; justify-content: center; }
+.reset-btn:active { color: #f0d9c8; border-color: #d13030; }
 .draft-banner {
   background: #1c0808; border: 0.5px solid #d13030; border-radius: 8px;
   padding: 8px 10px; font-size: 11px; color: #f0d9c8; margin-bottom: 12px;
@@ -77,6 +79,7 @@ input:focus, select:focus { outline: 1px solid #d13030; }
 .extra-day-card { border: 0.5px dashed #e0a940; cursor: pointer; margin-top: 8px; }
 .extra-day-card p { font-size: 13px; color: #f5e6d3; }
 .extra-day-card .sub { font-size: 10px; color: #8a8a8a; margin-top: 2px; }
+.extra-day-card.done { border: 0.5px solid #1d9e75; background: #14231c; cursor: default; }
 
 .field-label { font-size: 11px; color: #8a8a8a; margin: 12px 0 6px; }
 .routine-row { display: flex; align-items: center; justify-content: space-between; background: #1c0808; border: 0.5px solid #3a1414; border-radius: 8px; padding: 10px 12px; margin-bottom: 8px; }
