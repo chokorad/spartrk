@@ -154,7 +154,7 @@ input:focus, select:focus { outline: 1px solid #d13030; }
 .set-input-row input { flex: 1; min-width: 54px; font-size: 12px; padding: 6px; }
 .set-input-row select { flex: 1.3; min-width: 70px; font-size: 11px; padding: 6px; }
 
-.set-input-row.prefilled input, .set-input-row.prefilled select { opacity: 0.55; font-style: italic; }
+.set-input-row.prefilled input, .set-input-row.prefilled select { opacity: 0.35; font-style: italic; color: #8a8a8a; }
 .set-input-row.touched input, .set-input-row.touched select {
   border-color: #d13030; background: #1c0808; opacity: 1; font-style: normal;
 }

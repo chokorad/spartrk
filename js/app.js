@@ -1035,7 +1035,12 @@ function buildExerciseBlock(exerciseId, sets, dayLabel, opts = {}) {
     const lentasVal = draftSet && draftSet.repsLentas ? draftSet.repsLentas : (prevSet && prevSet.repsLentas ? prevSet.repsLentas : "");
     const normalesVal = draftSet && draftSet.repsNormales ? draftSet.repsNormales : (prevSet && prevSet.repsNormales ? prevSet.repsNormales : "");
     const sensVal = (draftSet && draftSet.sensacion) || "Normal";
-    const isPrefilled = !draftHasPeso && (suggested != null || (prevSet && prevSet.peso));
+    // "prefilled" ahora cubre TODO lo heredado (peso sugerido/anterior Y reps de la
+    // vez pasada), no solo el peso: mientras no haya un dato real capturado hoy
+    // (draftSet), lo que se ve es solo referencia — se difumina y no cuenta como
+    // hecho hasta que el usuario toca algo en esa serie.
+    const rowHasRealDraft = !!(draftSet && (draftSet.peso || draftSet.repsLentas || draftSet.repsNormales));
+    const isPrefilled = !rowHasRealDraft && !!(pesoVal || lentasVal || normalesVal);
 
     const inputRow = document.createElement("div");
     inputRow.className = "set-input-row" + (isPrefilled ? " prefilled" : "");
@@ -1110,7 +1115,12 @@ function buildExerciseBlock(exerciseId, sets, dayLabel, opts = {}) {
       el.addEventListener("input", checkSetFilled);
       el.addEventListener("change", checkSetFilled);
     });
-    checkSetFilled(); // por si ya viene prellenado con datos de la vez anterior
+    // Ojo: ya NO se llama checkSetFilled() aquí al construir el bloque. Antes se
+    // llamaba una vez "por si ya viene prellenado con datos de la vez anterior",
+    // pero como los campos de reps siempre traen el valor de la sesión pasada,
+    // eso marcaba TODAS las series como "ya hechas" antes de que el usuario
+    // tocara nada, colapsando el estimado de tiempo a 0 min de entrada. Ahora
+    // solo cuenta cuando el usuario de verdad interactúa con el campo.
 
     const pesoInput = inputRow.querySelector('[data-field="peso"]');
     pesoInput.addEventListener("input", () => {
@@ -1152,10 +1162,14 @@ function buildExerciseBlock(exerciseId, sets, dayLabel, opts = {}) {
   listoBtn.textContent = "Listo ✓";
   const nudge = document.createElement("p");
   nudge.className = "nudge";
-  nudge.textContent = "Te falta llenar alguna serie antes de marcar listo.";
+  nudge.textContent = "Confirma (toca) cada serie con tus reps de hoy antes de marcar listo — lo difuminado es solo referencia de la vez pasada.";
   listoBtn.onclick = () => {
-    const allFilled = inputs.every((row) => {
+    const allFilled = inputs.every((row, i) => {
       if (!row) return true;
+      // no basta con que el campo tenga un número (podría venir heredado de la
+      // vez pasada sin que el usuario lo haya confirmado hoy) — tiene que estar
+      // tocado.
+      if (!touched[i]) return false;
       const reps = (parseInt(row.querySelector('[data-field="repsLentas"]').value) || 0) +
                    (parseInt(row.querySelector('[data-field="repsNormales"]').value) || 0);
       return reps > 0;
@@ -1186,7 +1200,9 @@ function buildExerciseBlock(exerciseId, sets, dayLabel, opts = {}) {
     nombre: ex.nombre + (opts.nameSuffix || ""),
     equipo: equipoSelect ? equipoSelect.value : null,
     unidad: unitSelect.value,
-    sets: inputs.map((row, i) => row ? {
+    // si la serie nunca se tocó, no se guarda lo que estaba de referencia (difuminado)
+    // como si fuera dato de hoy — se manda vacía.
+    sets: inputs.map((row, i) => (row && touched[i]) ? {
       label: sets[i].label,
       peso: row.querySelector('[data-field="peso"]').value || null,
       repsLentas: row.querySelector('[data-field="repsLentas"]').value || null,
@@ -1350,6 +1366,18 @@ async function renderDayInner(dayId, extraOverride) {
     // (el tiempo fuera de la app no cuenta como entrenamiento).
     isPaused = !!(draftData && draftData.isPaused && draftData.pauseStartedAt);
     pauseStartedAt = isPaused ? draftData.pauseStartedAt : null;
+
+    // el cronómetro ya no se autopausa al bloquear pantalla / cambiar de app (sigue
+    // corriendo en segundo plano a propósito). Pero si el borrador lleva HORAS sin
+    // ninguna actividad guardada (sesión abandonada, no solo un bloqueo de pantalla
+    // entre series), no confiamos en que siguió corriendo todo ese tiempo solo: se
+    // deja en pausa desde el último guardado, así no se infla la duración.
+    const STALE_MS = 3 * 60 * 60 * 1000; // 3 horas sin actividad
+    if (!isPaused && draftData && draftData.savedAt && (Date.now() - draftData.savedAt) > STALE_MS) {
+      isPaused = true;
+      pauseStartedAt = draftData.savedAt;
+    }
+
     renderTimerUI();
     timerInterval = setInterval(() => {
       if (!isPaused) {
@@ -1363,10 +1391,14 @@ async function renderDayInner(dayId, extraOverride) {
   function togglePause() {
     if (!sessionStartTime) return;
     if (isPaused) {
+      // reanudar nunca pide confirmación (siempre es seguro / lo que quieres).
       pausedAccum += Date.now() - pauseStartedAt;
       pauseStartedAt = null;
       isPaused = false;
     } else {
+      // pausar sí pide confirmación — para que no se dispare por accidente y
+      // pierdas el tiempo del entrenamiento sin querer.
+      if (!confirm("¿Pausar el cronómetro de este entrenamiento?")) return;
       isPaused = true;
       pauseStartedAt = Date.now();
     }
@@ -1374,10 +1406,12 @@ async function renderDayInner(dayId, extraOverride) {
     persistDraft();
   }
 
-  // pausa automática si sales de la pantalla del ejercicio (cambias de app, apagas
-  // pantalla, o le das "volver"): antes el cronómetro seguía corriendo en segundo
-  // plano durante horas/días si no cerrabas la sesión, y arruinaba la duración
-  // guardada (ej. "5684 hrs" por dejar la app abierta desde el viernes).
+  // Antes había una pausa automática al bloquear pantalla / cambiar de app (para
+  // evitar duraciones absurdas de sesiones abandonadas por horas/días). Se quitó
+  // a propósito: bloquear el celular entre series es parte normal de entrenar y
+  // el cronómetro debe seguir corriendo — solo se pausa con el botón manual (con
+  // confirmación arriba) o al presionar "volver" abajo. La protección contra
+  // sesiones realmente abandonadas quedó en startTimer() (ver STALE_MS arriba).
   function autoPauseOnLeave() {
     if (sessionStartTime && !isPaused) {
       isPaused = true;
@@ -1386,10 +1420,6 @@ async function renderDayInner(dayId, extraOverride) {
       persistDraft();
     }
   }
-  dayVisibilityHandler = () => { if (document.hidden) autoPauseOnLeave(); };
-  dayPagehideHandler = autoPauseOnLeave;
-  document.addEventListener("visibilitychange", dayVisibilityHandler);
-  window.addEventListener("pagehide", dayPagehideHandler);
 
   renderTimerUI();
 
